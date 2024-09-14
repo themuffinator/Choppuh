@@ -2364,7 +2364,7 @@ void Weapon_ChainFist(gentity_t *ent) {
 	else if (ent->client->weaponstate == WEAPON_DROPPING)
 		ent->client->weapon_sound = 0;
 	else if (ent->client->pers.weapon->id == IT_WEAPON_CHAINFIST)
-		ent->client->weapon_sound = gi.soundindex("weapons/sawidle.wav");
+		ent->client->weapon_sound = 0;
 }
 
 /*

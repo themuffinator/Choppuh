@@ -3681,7 +3681,7 @@ model="models/weapons/g_chainf/tris.md2"
 		/* vwep_model */ "#w_chainfist.md2",
 		/* armor_info */ nullptr,
 		/* tag */ 0,
-		/* precaches */ "weapons/sawidle.wav weapons/sawhit.wav weapons/sawslice.wav",
+		/* precaches */ "weapons/sawhit.wav weapons/sawslice.wav",
 	},
 
 /*QUAKED weapon_shotgun (.3 .3 1) (-16 -16 -16) (16 16 16) TRIGGER_SPAWN x x SUSPENDED x x x x NOT_EASY NOT_MEDIUM NOT_HARD NOT_DM NOT_COOP
