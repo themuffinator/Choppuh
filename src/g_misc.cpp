@@ -164,11 +164,6 @@ gentity_t *ThrowGib(gentity_t *self, const char *gibname, int damage, gib_type_t
 	gib->s.sound = 0;
 	gib->monsterinfo.engine_sound = 0;
 
-	if (GT(GT_FREEZE)) {
-		gib->s.renderfx |= (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE);
-		gib->s.effects |= EF_COLOR_SHELL;
-	}
-
 	if (!(type & GIB_METALLIC)) {
 		gib->movetype = MOVETYPE_TOSS;
 		vscale = (type & GIB_ACID) ? 3.0 : 0.5;
@@ -2001,7 +1996,7 @@ void SP_misc_teleporter_dest(gentity_t *ent) {
 	if (level.is_n64)
 		return;
 
-	if (g_dm_spawnpads->integer > 1 || (g_dm_spawnpads->integer == 1 && ItemSpawnsEnabled() && notGT(GT_HORDE))) {
+	if (g_dm_spawnpads->integer > 1 || (g_dm_spawnpads->integer == 1 && ItemSpawnsEnabled())) {
 		if (!level.no_dm_spawnpads) {
 			gi.setmodel(ent, "models/objects/dmspot/tris.md2");
 			ent->s.skinnum = 0;

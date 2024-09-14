@@ -633,21 +633,6 @@ void G_AdjustPlayerScore(gclient_t *cl, int32_t offset, bool adjust_team, int32_
 
 /*
 ===================
-Horde_AdjustPlayerScore
-===================
-*/
-void Horde_AdjustPlayerScore(gclient_t *cl, int32_t offset) {
-	if (notGT(GT_HORDE)) return;
-	if (!cl || !cl->pers.connected) return;
-
-	if (IsScoringDisabled())
-		return;
-
-	G_AdjustPlayerScore(cl, offset, false, 0);
-}
-
-/*
-===================
 G_SetPlayerScore
 ===================
 */
@@ -677,7 +662,7 @@ void G_AdjustTeamScore(team_t team, int32_t offset) {
 	if (level.intermission_queued)
 		return;
 
-	if (!Teams() || GT(GT_RR))
+	if (!Teams())
 		return;
 
 	if (team == TEAM_RED)
@@ -700,7 +685,7 @@ void G_SetTeamScore(team_t team, int32_t value) {
 	if (level.intermission_queued)
 		return;
 
-	if (!Teams() || GT(GT_RR))
+	if (!Teams())
 		return;
 
 	if (team == TEAM_RED)
@@ -755,13 +740,7 @@ const char *G_PlaceString(int rank) {
 }
 
 bool ItemSpawnsEnabled() {
-	if (g_no_items->integer)
-		return false;
-	if (g_instagib->integer || g_nadefest->integer)
-		return false;
-	if (GTF(GTF_ARENA))
-		return false;
-	return true;
+	return false;
 }
 
 
@@ -809,8 +788,7 @@ bool loc_CanSee(gentity_t *targ, gentity_t *inflictor) {
 }
 
 bool Teams() {
-	return GTF(GTF_TEAMS);
-	//return GT(GT_CTF) || GT(GT_TDM) || GT(GT_FREEZE) || GT(GT_CA) || GT(GT_STRIKE) || GT(GT_RR);
+	return true;
 }
 
 /*
@@ -909,10 +887,10 @@ bool IsCombatDisabled() {
 		return true;
 	if (level.match_state == matchst_t::MATCH_COUNTDOWN)
 		return true;
-	if (GTF(GTF_ROUNDS) && level.match_state == matchst_t::MATCH_IN_PROGRESS) {
+	if (level.match_state == matchst_t::MATCH_IN_PROGRESS) {
 		// added round ended to allow gibbing etc. at end of rounds
 		// scoring to be explicitly disabled during this time
-		if (level.round_state == roundst_t::ROUND_COUNTDOWN && (notGT(GT_HORDE)))
+		if (level.round_state == roundst_t::ROUND_COUNTDOWN)
 			return true;
 	}
 	return false;
@@ -935,19 +913,7 @@ bool IsScoringDisabled() {
 		return true;
 	if (IsCombatDisabled())
 		return true;
-	if (GTF(GTF_ROUNDS) && level.round_state != roundst_t::ROUND_IN_PROGRESS)
-		return true;
 	return false;
-}
-
-gametype_t GT_IndexFromString(const char *in) {
-	for (size_t i = 0; i < gametype_t::GT_NUM_GAMETYPES; i++) {
-		if (!Q_strcasecmp(in, gt_short_name[i]))
-			return (gametype_t)i;
-		if (!Q_strcasecmp(in, gt_long_name[i]))
-			return (gametype_t)i;
-	}
-	return gametype_t::GT_NONE;
 }
 
 void BroadcastReadyReminderMessage() {
@@ -979,7 +945,7 @@ void TeleportPlayerToRandomSpawnPoint(gentity_t *ent, bool fx) {
 }
 
 bool InCoopStyle() {
-	return coop->integer || GT(GT_HORDE);
+	return coop->integer;
 }
 
 /*

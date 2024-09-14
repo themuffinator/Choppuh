@@ -510,15 +510,6 @@ void ED_CallSpawn(gentity_t *ent) {
 
 	ent->sv.init = false;
 
-#if 0
-	if (GT(GT_HORDE)) {
-		// remove monsters from map, we will spawn them in during wave starts
-		if (!strnicmp(ent->classname, "monster_", 8)) {
-			G_FreeEntity(ent);
-			return;
-		}
-	}
-#endif
 	// FIXME - PMM classnames hack
 	if (!strcmp(ent->classname, "weapon_nailgun"))
 		ent->classname = GetItemByIndex(IT_WEAPON_ETF_RIFLE)->classname;
@@ -532,10 +523,6 @@ void ED_CallSpawn(gentity_t *ent) {
 		ent->classname = "info_player_team_red";
 	else if (!strcmp(ent->classname, "info_player_team2"))
 		ent->classname = "info_player_team_blue";
-	else if (!strcmp(ent->classname, "item_flag_team1"))
-		ent->classname = ITEM_CTF_FLAG_RED;
-	else if (!strcmp(ent->classname, "item_flag_team2"))
-		ent->classname = ITEM_CTF_FLAG_BLUE;
 
 	if (RS(RS_Q1)) {
 		if (!strcmp(ent->classname, "weapon_machinegun"))
@@ -588,16 +575,6 @@ void ED_CallSpawn(gentity_t *ent) {
 				ent->classname = s.name;
 			return;
 		}
-	}
-
-	if (!strcmp(ent->classname, "item_ball")) {
-		if (GT(GT_BALL)) {
-			ent->s.effects |= EF_COLOR_SHELL;
-			ent->s.renderfx |= RF_SHELL_RED | RF_SHELL_GREEN;
-		} else {
-			G_FreeEntity(ent);
-		}
-		return;
 	}
 
 	gi.Com_PrintFmt("{}: {} doesn't have a spawn function.\n", __FUNCTION__, *ent);
@@ -851,8 +828,6 @@ static const std::initializer_list<field_t> entity_fields = {
 	},
 
 //muff
-	FIELD_AUTO(gametype),
-	FIELD_AUTO(not_gametype),
 	FIELD_AUTO(notteam),
 	FIELD_AUTO(notfree),
 	FIELD_AUTO(notq2),
@@ -944,22 +919,6 @@ static const std::initializer_list<temp_field_t> temp_fields = {
 
 };
 // clang-format on
-
-static constexpr const char *gt_spawn_string[GT_NUM_GAMETYPES] = {
-	"campaign",
-	"ffa",
-	"tournament",
-	"team",
-	"ctf",
-	"ca",
-	"freeze",
-	"strike",
-	"rr",
-	"lms",
-	"horde",
-	"race",
-	"ball"
-};
 
 /*
 ===============
@@ -1164,17 +1123,6 @@ static void G_FindTeams() {
 
 // inhibit entities from game based on cvars & spawnflags
 static inline bool G_InhibitEntity(gentity_t *ent) {
-	if (ent->gametype) {
-		const char *s = strstr(ent->gametype, gt_spawn_string[g_gametype->integer]);
-		if (!s)
-			return true;
-	}
-	if (ent->not_gametype) {
-		const char *s = strstr(ent->not_gametype, gt_spawn_string[g_gametype->integer]);
-		if (s)
-			return true;
-	}
-
 	if (ent->notteam && Teams())
 		return true;
 	if (ent->notfree && !Teams())
@@ -1183,8 +1131,6 @@ static inline bool G_InhibitEntity(gentity_t *ent) {
 	if (ent->notq2 && (RS(RS_Q2RE) || RS(RS_MM)))
 		return true;
 	if (ent->notq3a && RS(RS_Q3A))
-		return true;
-	if (ent->notarena && (GTF(GTF_ARENA)))
 		return true;
 
 	if (ent->powerups_on && g_no_powerups->integer)
@@ -1312,31 +1258,6 @@ static void PrecachePlayerSounds() {
 	gi.soundindex("*drown1.wav"); // [Paril-KEX]
 }
 
-void GT_PrecacheAssets() {
-	if (Teams()) {
-		if (notGT(GT_RR)) {
-			ii_teams_header_red = gi.imageindex("tag4");
-			ii_teams_header_blue = gi.imageindex("tag5");
-		}
-		ii_teams_red_default = gi.imageindex("i_ctf1");
-		ii_teams_blue_default = gi.imageindex("i_ctf2");
-		ii_teams_red_tiny = gi.imageindex("sbfctf1");
-		ii_teams_blue_tiny = gi.imageindex("sbfctf2");
-	}
-
-	if (GT(GT_DUEL))
-		ii_duel_header = gi.imageindex("/tags/default");
-
-	if (GTF(GTF_CTF)) {
-		ii_ctf_red_dropped = gi.imageindex("i_ctf1d");
-		ii_ctf_blue_dropped = gi.imageindex("i_ctf2d");
-		ii_ctf_red_taken = gi.imageindex("i_ctf1t");
-		ii_ctf_blue_taken = gi.imageindex("i_ctf2t");
-		mi_ctf_red_flag = gi.modelindex("players/male/flag1.md2");
-		mi_ctf_blue_flag = gi.modelindex("players/male/flag2.md2");
-	}
-}
-
 // [Paril-KEX]
 static void PrecacheAssets() {
 	if (!deathmatch->integer) {
@@ -1374,7 +1295,10 @@ static void PrecacheAssets() {
 
 	ii_highlight = gi.imageindex("i_ctfj");
 
-	GT_PrecacheAssets();
+	ii_teams_red_default = gi.imageindex("i_ctf1");
+	ii_teams_blue_default = gi.imageindex("i_ctf2");
+	ii_teams_red_tiny = gi.imageindex("sbfctf1");
+	ii_teams_blue_tiny = gi.imageindex("sbfctf2");
 }
 
 #define	MAX_READ	0x10000		// read in blocks of 64k
@@ -1924,18 +1848,6 @@ static void G_InitStatusbar() {
 		if (g_coop_enable_lives->integer && g_coop_num_lives->integer > 0)
 			sb.ifstat(STAT_LIVES).xr(-16).yt(y = 2).lives_num(STAT_LIVES).xr(0).yt(y += text_adj).loc_rstring("$g_lives").endifstat();
 
-		// total monsters
-		if (GT(GT_HORDE)) {
-			int num, chars;
-			
-			num = level.round_number;
-			chars = num > 99 ? 3 : num > 9 ? 2 : 1;
-			sb.ifstat(STAT_ROUND_NUMBER).xr(-32 - (16 * chars)).yt(y += 10).num(3, STAT_ROUND_NUMBER).xr(0).yt(y += text_adj).loc_rstring("Wave").endifstat();
-
-			num = level.total_monsters - level.killed_monsters;
-			chars = num > 99 ? 3 : num > 9 ? 2 : 1;
-			sb.ifstat(STAT_MONSTER_COUNT).xr(-32 - (16 * chars)).yt(y += 10).num(3, STAT_MONSTER_COUNT).xr(0).yt(y += text_adj).loc_rstring("Monsters").endifstat();
-		}
 	}
 	if (!deathmatch->integer) {
 		// SP/coop
@@ -1958,10 +1870,6 @@ static void G_InitStatusbar() {
 		sb.story();
 	} else {
 		if (Teams()) {
-			// flag carrier indicator
-			if (GTF(GTF_CTF))
-				sb.ifstat(STAT_CTF_FLAG_PIC).xr(-24).yt(26).pic(STAT_CTF_FLAG_PIC).endifstat();
-
 			// teams unbalanced warning
 			sb.ifstat(STAT_TEAMPLAY_INFO).xl(0).yb(-88).stat_string(STAT_TEAMPLAY_INFO).endifstat();
 		}
@@ -1994,177 +1902,6 @@ static void G_InitStatusbar() {
 	}
 
 	gi.configstring(CS_STATUSBAR, sb.sb.str().c_str());
-}
-
-void GT_SetLongName(void) {
-	const char *s;
-	if (deathmatch->integer) {
-		if (GT(GT_CTF)) {
-			if (g_instagib->integer) {
-				s = "Insta-CTF";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric CTF";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy CTF";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest CTF";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog CTF";
-			} else {
-				s = gt_long_name[GT_CTF];
-			}
-		} else if (GT(GT_FREEZE)) {
-			if (g_instagib->integer) {
-				s = "Insta-Freeze";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric Freeze";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy Freeze";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest Freeze";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog Freeze";
-			} else {
-				s = gt_long_name[GT_FREEZE];
-			}
-		} else if (GT(GT_CA)) {
-			if (g_instagib->integer) {
-				s = "Insta-CA";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric CA";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy CA";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest CA";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog CA";
-			} else {
-				s = gt_long_name[GT_CA];
-			}
-		} else if (GT(GT_RR)) {
-			if (g_instagib->integer) {
-				s = "Insta-RR";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric RR";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy RR";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest RR";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog RR";
-			} else {
-				s = gt_long_name[GT_RR];
-			}
-		} else if (GT(GT_STRIKE)) {
-			if (g_instagib->integer) {
-				s = "Insta-Strike";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric Strike";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy Strike";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest Strike";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog Strike";
-			} else {
-				s = gt_long_name[GT_STRIKE];
-			}
-		} else if (GT(GT_TDM)) {
-			if (g_instagib->integer) {
-				s = "Insta-TDM";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric TDM";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy TDM";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest TDM";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog TDM";
-			} else {
-				s = gt_long_name[GT_TDM];
-			}
-		} else if (GT(GT_DUEL)) {
-			if (g_instagib->integer) {
-				s = "Insta-Duel";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric Duel";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy Duel";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest Duel";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog Duel";
-			} else {
-				s = gt_long_name[GT_DUEL];
-			}
-		} else if (GT(GT_HORDE)) {
-			if (g_instagib->integer) {
-				s = "Insta-Horde";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric Horde";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy Horde";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest Horde";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog Horde";
-			} else {
-				s = gt_long_name[GT_HORDE];
-			}
-		} else if (GT(GT_RACE)) {
-			if (g_instagib->integer) {
-				s = "Insta-Race";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric Race";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy Race";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest Race";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog Race";
-			} else {
-				s = gt_long_name[GT_RACE];
-			}
-		} else if (GT(GT_BALL)) {
-			if (g_instagib->integer) {
-				s = "Insta-ProBall";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric ProBall";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy ProBall";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest ProBall";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog ProBall";
-			} else {
-				s = gt_long_name[GT_BALL];
-			}
-		} else if (deathmatch->integer) {
-			if (g_instagib->integer) {
-				s = "InstaGib";
-			} else if (g_vampiric_damage->integer) {
-				s = "Vampiric FFA";
-			} else if (g_frenzy->integer) {
-				s = "Frenzy FFA";
-			} else if (g_nadefest->integer) {
-				s = "NadeFest";
-			} else if (g_quadhog->integer) {
-				s = "Quad Hog";
-			} else {
-				s = gt_long_name[GT_FFA];
-			}
-		} else {
-			s = "Unknown Gametype";
-		}
-	} else {
-		if (coop->integer) {
-			s = "Co-op";
-		} else {
-			s = "Single Player";
-		}
-	}
-	if (s)
-		Q_strlcpy(level.gametype_name, s, sizeof(level.gametype_name));
 }
 
 /*QUAKED worldspawn (0 0 0) ?
@@ -2268,7 +2005,7 @@ void SP_worldspawn(gentity_t *ent) {
 	// [Paril-KEX]
 	if (!deathmatch->integer)
 		gi.configstring(CS_GAME_STYLE, G_Fmt("{}", (int32_t)game_style_t::GAME_STYLE_PVE).data());
-	else if (Teams() && notGT(GT_RR))
+	else if (Teams())
 		gi.configstring(CS_GAME_STYLE, G_Fmt("{}", (int32_t)game_style_t::GAME_STYLE_TDM).data());
 	else
 		gi.configstring(CS_GAME_STYLE, G_Fmt("{}", (int32_t)game_style_t::GAME_STYLE_FFA).data());
@@ -2320,17 +2057,11 @@ void SP_worldspawn(gentity_t *ent) {
 	if (!deathmatch->integer)
 		PrecacheItem(GetItemByIndex(IT_COMPASS));
 
-	if (!g_instagib->integer && !g_nadefest->integer && notGT(GT_BALL))
+	if (!g_instagib->integer && !g_nadefest->integer)
 		PrecacheItem(GetItemByIndex(IT_WEAPON_BLASTER));
 
-	if (GT(GT_BALL))
-		PrecacheItem(GetItemByIndex(IT_BALL));
-
-	if ((!strcmp(g_allow_grapple->string, "auto")) ?
-		(GTF(GTF_CTF) ? !level.no_grapple : 0) :
-		g_allow_grapple->integer) {
+	if ((!strcmp(g_allow_grapple->string, "auto")) ? 0 : g_allow_grapple->integer)
 		PrecacheItem(GetItemByIndex(IT_WEAPON_GRAPPLE));
-	}
 
 	if (g_dm_random_items->integer) {
 		for (item_id_t i = static_cast<item_id_t>(IT_NULL + 1); i < IT_TOTAL; i = static_cast<item_id_t>(i + 1))
@@ -2364,8 +2095,6 @@ void SP_worldspawn(gentity_t *ent) {
 	}
 
 	PrecacheAssets();
-
-	GT_SetLongName();
 
 	//
 	// Setup light animation tables. 'a' is total darkness, 'z' is doublebright.

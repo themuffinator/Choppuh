@@ -438,12 +438,12 @@ void SP_trigger_deathcount(gentity_t *ent) {
 
 /*QUAKED trigger_no_monsters (1 0 0) (-8 -8 -8) (8 8 8) ONCE
 Fires targets only if all monsters have been killed or none are present.
-Auto-removed in deathmatch (except horde mode).
+Auto-removed in deathmatch.
 
 ONCE : will be removed after firing once
 */
 void SP_trigger_no_monsters(gentity_t *ent) {
-	if (deathmatch->integer && notGT(GT_HORDE)) {
+	if (deathmatch->integer) {
 		G_FreeEntity(ent);
 		return;
 	}
@@ -461,12 +461,12 @@ void SP_trigger_no_monsters(gentity_t *ent) {
 
 /*QUAKED trigger_monsters (1 0 0) (-8 -8 -8) (8 8 8) ONCE
 Fires targets only if monsters are present in the level.
-Auto-removed in deathmatch (except horde mode).
+Auto-removed in deathmatch.
 
 ONCE : will be removed after firing once
 */
 void SP_trigger_monsters(gentity_t *ent) {
-	if (deathmatch->integer && notGT(GT_HORDE)) {
+	if (deathmatch->integer) {
 		G_FreeEntity(ent);
 		return;
 	}

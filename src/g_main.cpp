@@ -36,7 +36,6 @@ cvar_t *hostname;
 cvar_t *deathmatch;
 cvar_t *ctf;
 cvar_t *teamplay;
-cvar_t *g_gametype;
 
 cvar_t *coop;
 
@@ -150,7 +149,6 @@ cvar_t *g_grapple_fly_speed;
 cvar_t *g_grapple_offhand;
 cvar_t *g_grapple_pull_speed;
 cvar_t *g_gravity;
-cvar_t *g_horde_starting_wave;
 cvar_t *g_huntercam;
 cvar_t *g_inactivity;
 cvar_t *g_infinite_ammo;
@@ -179,7 +177,6 @@ cvar_t *g_no_nukes;
 cvar_t *g_no_powerups;
 cvar_t *g_no_spheres;
 cvar_t *g_owner_auto_join;
-cvar_t *g_gametype_cfg;
 cvar_t *g_quadhog;
 cvar_t *g_quick_weapon_switch;
 cvar_t *g_rollangle;
@@ -217,7 +214,6 @@ cvar_t *bot_name_prefix;
 
 static cvar_t *g_frames_per_frame;
 
-int ii_duel_header;
 int ii_highlight;
 int ii_ctf_red_dropped;
 int ii_ctf_blue_dropped;
@@ -248,300 +244,7 @@ void InitSave();
 
 #include <chrono>
 
-int _gt[] = {
-	/* GT_NONE */ 0,
-	/* GT_FFA */ 0,
-	/* GT_DUEL */ 0,
-	/* GT_TDM */ GTF_TEAMS,
-	/* GT_CTF */ GTF_TEAMS | GTF_CTF,
-	/* GT_CA */ GTF_TEAMS | GTF_ARENA | GTF_ROUNDS | GTF_ELIMINATION,
-	/* GT_FREEZE */ GTF_TEAMS | GTF_ELIMINATION,
-	/* GT_STRIKE */ GTF_TEAMS | GTF_ARENA | GTF_ROUNDS | GTF_CTF | GTF_ELIMINATION,
-	/* GT_RR */ GTF_TEAMS | GTF_ROUNDS | GTF_ARENA,
-	/* GT_LMS */ GTF_ELIMINATION,
-	/* GT_HORDE */ GTF_ROUNDS,
-	/* GT_RACE */ GTF_ARENA,
-	/* GT_BALL */ 0
-};
-
 // =================================================
-
-static gentity_t *FindClosestPlayerToPoint(vec3_t point) {
-	float	bestplayerdistance;
-	vec3_t	v;
-	float	playerdistance;
-	gentity_t *closest = nullptr;
-
-	bestplayerdistance = 9999999;
-
-	for (auto ec : active_clients()) {
-		if (ec->health <= 0 || ec->client->eliminated)
-			continue;
-
-		v = point - ec->s.origin;
-		playerdistance = v.length();
-
-		if (playerdistance < bestplayerdistance) {
-			bestplayerdistance = playerdistance;
-			closest = ec;
-		}
-	}
-
-	return closest;
-}
-
-struct weighted_item_t;
-
-using weight_adjust_func_t = void(*)(const weighted_item_t &item, float &weight);
-
-void adjust_weight_health(const weighted_item_t &item, float &weight);
-void adjust_weight_weapon(const weighted_item_t &item, float &weight);
-void adjust_weight_ammo(const weighted_item_t &item, float &weight);
-void adjust_weight_armor(const weighted_item_t &item, float &weight);
-
-constexpr struct weighted_item_t {
-	const char *classname;
-	int32_t					min_level = -1, max_level = -1;
-	float					weight = 1.0f;
-	float					lvl_w_adjust = 0;
-	int						flags;
-	item_id_t				item[4];
-	weight_adjust_func_t	adjust_weight = nullptr;
-} items[] = {
-	{ "item_health_small" },
-
-	{ "item_health",				-1,	-1, 1.0f,	0,		0,		{ IT_NULL },					adjust_weight_health },
-	{ "item_health_large",			-1,	-1, 0.85f,	0,		0,		{ IT_NULL },					adjust_weight_health },
-
-	{ "item_armor_shard" },
-	{ "item_armor_jacket",			-1,	4,	0.65f,	0,		0,		{ IT_NULL },					adjust_weight_armor },
-	{ "item_armor_combat",			2,	-1, 0.62f,	0,		0,		{ IT_NULL },					adjust_weight_armor },
-	{ "item_armor_body",			4,	-1, 0.35f,	0,		0,		{ IT_NULL },					adjust_weight_armor },
-
-	{ "weapon_shotgun",				-1,	-1, 0.98f,	0,		0,		{ IT_NULL },					adjust_weight_weapon },
-	{ "weapon_supershotgun",		2,	-1, 1.02f,	0,		0,		{ IT_NULL },					adjust_weight_weapon },
-	{ "weapon_machinegun",			-1,	-1, 1.05f,	0,		0,		{ IT_NULL },					adjust_weight_weapon },
-	{ "weapon_chaingun",			3,	-1, 1.01f,	0,		0,		{ IT_NULL },					adjust_weight_weapon },
-	{ "weapon_grenadelauncher",		4,	-1, 0.75f,	0,		0,		{ IT_NULL },					adjust_weight_weapon },
-
-	{ "ammo_shells",				-1,	-1,	1.25f,	0,		0,		{ IT_NULL },					adjust_weight_ammo },
-	{ "ammo_bullets",				-1,	-1,	1.25f,	0,		0,		{ IT_NULL },					adjust_weight_ammo },
-	{ "ammo_grenades",				2,	-1,	1.25f,	0,		0,		{ IT_NULL },					adjust_weight_ammo },
-};
-
-void adjust_weight_health(const weighted_item_t &item, float &weight) {}
-
-void adjust_weight_weapon(const weighted_item_t &item, float &weight) {}
-
-void adjust_weight_ammo(const weighted_item_t &item, float &weight) {}
-
-void adjust_weight_armor(const weighted_item_t &item, float &weight) {}
-
-//	classname,						min_level, max_level, weight, lvl_w_adjust, flags, items
-constexpr weighted_item_t monsters[] = {
-	{ "monster_soldier_light",		-1,	7,	1.50f,	-0.45f,		MF_GROUND,				{ IT_HEALTH_SMALL } },
-	{ "monster_soldier",			-1,	7,	0.85f,	-0.25f,		MF_GROUND,				{ IT_AMMO_BULLETS_SMALL, IT_HEALTH_SMALL } },
-	{ "monster_soldier_ss",			2,	7,	1.01f,	-0.125f,	MF_GROUND,				{ IT_AMMO_SHELLS_SMALL, IT_HEALTH_SMALL } },
-	{ "monster_soldier_hypergun",	2,	9,	1.2f,	0.15f,		MF_GROUND,				{ IT_AMMO_CELLS_SMALL, IT_HEALTH_SMALL } },
-	{ "monster_soldier_lasergun",	3,	9,	1.15f,	0.2f,		MF_GROUND,				{ IT_AMMO_CELLS_SMALL, IT_HEALTH_SMALL } },
-	{ "monster_soldier_ripper",		3,	9,	1.25f,	0.25f,		MF_GROUND,				{ IT_AMMO_CELLS_SMALL, IT_HEALTH_SMALL } },
-	{ "monster_infantry",			3,	16,	1.05f,	0.125f,		MF_GROUND,				{ IT_AMMO_BULLETS_SMALL, IT_AMMO_BULLETS } },
-	{ "monster_gunner",				4,	16,	1.08f,	0.5f,		MF_GROUND,				{ IT_AMMO_GRENADES, IT_AMMO_BULLETS_SMALL } },
-	{ "monster_berserk",			4,	16,	1.05f,	0.1f,		MF_GROUND,				{ IT_ARMOR_SHARD } },
-	//{ "monster_flipper",			4,	8,	0.85f,	-0.15f,		MF_WATER,				{ IT_NULL } },
-	{ "monster_parasite",			5,	16,	1.04f,	-0.08f,		MF_GROUND,				{ IT_NULL } },
-	{ "monster_gladiator",			5,	16,	1.07f,	0.3f,		MF_GROUND,				{ IT_AMMO_SLUGS } },
-	{ "monster_gekk",				6,	16,	0.99f,	-0.15f,		MF_GROUND | MF_WATER,	{ IT_NULL } },
-	{ "monster_brain",				6,	16,	0.95f,	0,			MF_GROUND,				{ IT_AMMO_CELLS_SMALL } },
-	{ "monster_flyer",				6,	16,	0.92f,	0.15f,		MF_GROUND | MF_AIR,		{ IT_AMMO_CELLS_SMALL } },
-	{ "monster_floater",			7,	16,	0.9f,	0,			MF_GROUND | MF_AIR,		{ IT_NULL } },
-	{ "monster_mutant",				7,	16,	0.85f,	0,			MF_GROUND,				{ IT_NULL } },
-	{ "monster_hover",				8,	16,	0.8f,	0,			MF_GROUND | MF_AIR,		{ IT_NULL } },
-	{ "monster_guncmdr",			8,	-1,	0,		0.125f,		MF_GROUND | MF_MEDIUM,	{ IT_AMMO_GRENADES, IT_AMMO_BULLETS_SMALL, IT_AMMO_BULLETS, IT_AMMO_CELLS_SMALL } },
-	{ "monster_chick",				9,	20,	1.01f,	-0.05f,		MF_GROUND,				{ IT_AMMO_ROCKETS_SMALL, IT_AMMO_ROCKETS } },
-	{ "monster_daedalus",			9,	-1,	0.99f,	0.05f,		MF_GROUND | MF_AIR,		{ IT_AMMO_CELLS_SMALL } },
-	{ "monster_medic",				10,	16,	0.95f,	-0.05f,		MF_GROUND,				{ IT_HEALTH_SMALL, IT_HEALTH_MEDIUM } },
-	{ "monster_tank",				11,	-1,	0.85f,	0,			MF_GROUND | MF_MEDIUM,	{ IT_AMMO_ROCKETS } },
-	{ "monster_chick_heat",			12,	-1,	0.87f,	0.065f,		MF_GROUND,				{ IT_AMMO_CELLS_SMALL, IT_AMMO_CELLS } },
-	{ "monster_tank_commander",		12,	-1,	0.45f,	0.16f,		MF_GROUND | MF_MEDIUM,	{ IT_AMMO_ROCKETS_SMALL, IT_AMMO_BULLETS_SMALL, IT_AMMO_ROCKETS, IT_AMMO_BULLETS } },
-	{ "monster_medic_commander",	13,	-1,	0.4f,	0.15f,		MF_GROUND | MF_MEDIUM,	{ IT_AMMO_CELLS_SMALL, IT_HEALTH_MEDIUM, IT_HEALTH_LARGE } },
-	{ "monster_kamikaze",			13,	-1,	0.85f,	0.04f,		MF_GROUND | MF_AIR,		{ IT_NULL } },
-	/*
-	{ "monster_boss2",				0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA, IT_AMMO_BULLETS_LARGE, IT_AMMO_ROCKETS } },	// hornet
-	{ "monster_jorg",				0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA, IT_AMMO_CELLS_LARGE } },
-	{ "monster_makron",				0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA, IT_AMMO_CELLS_LARGE } },
-	{ "monster_guardian",			0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA } },
-	{ "monster_arachnid",			0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA } },
-	{ "monster_boss5",				0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA, IT_AMMO_BULLETS_LARGE, IT_AMMO_CELLS, IT_AMMO_GRENADES } },	// super tank
-	{ "monster_carrier",			0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_AMMO_BULLETS_LARGE, IT_AMMO_SLUGS, IT_AMMO_GRENADES, IT_POWERUPS_QUAD } },
-	{ "monster_widow",				0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA, IT_AMMO_ROUNDS, IT_POWERUPS_QUAD } },
-	{ "monster_widow2",				0,	0,	0,		0,			MF_GROUND | MF_BOSS,	{ IT_HEALTH_MEGA, IT_AMMO_ROUNDS, IT_POWERUPS_QUAD } },
-	*/
-};
-
-struct picked_item_t {
-	const weighted_item_t *item;
-	float weight;
-};
-
-static gitem_t *Horde_PickItem() {
-	// collect valid items
-	static std::array<picked_item_t, q_countof(items)> picked_items;
-	static size_t num_picked_items;
-
-	num_picked_items = 0;
-
-	float total_weight = 0;
-	
-	for (auto &item : items) {
-		if (item.min_level != -1 && level.round_number < item.min_level)
-			continue;
-		if (item.max_level != -1 && level.round_number > item.max_level)
-			continue;
-
-		float weight = item.weight + ((level.round_number - item.min_level) * item.lvl_w_adjust);
-
-		if (item.adjust_weight)
-			item.adjust_weight(item, weight);
-
-		if (weight <= 0)
-			continue;
-
-		total_weight += weight;
-		picked_items[num_picked_items++] = { &item, total_weight };
-	}
-
-	if (!total_weight)
-		return nullptr;
-
-	float r = frandom() * total_weight;
-
-	for (size_t i = 0; i < num_picked_items; i++)
-		if (r < picked_items[i].weight)
-			return FindItemByClassname(picked_items[i].item->classname);
-
-	return nullptr;
-}
-
-static const char *Horde_PickMonster() {
-	// collect valid monsters
-	static std::array<picked_item_t, q_countof(items)> picked_monsters;
-	static size_t num_picked_monsters;
-
-	num_picked_monsters = 0;
-
-	float total_weight = 0;
-
-	for (auto &monster : monsters) {
-		if (monster.min_level != -1 && level.round_number < monster.min_level)
-			continue;
-		if (monster.max_level != -1 && level.round_number > monster.max_level)
-			continue;
-		
-		float weight = monster.weight + ((level.round_number - monster.min_level) * monster.lvl_w_adjust);
-
-		if (monster.adjust_weight)
-			monster.adjust_weight(monster, weight);
-
-		if (weight <= 0)
-			continue;
-
-		total_weight += weight;
-		picked_monsters[num_picked_monsters++] = { &monster, total_weight };
-	}
-
-	if (!total_weight)
-		return nullptr;
-
-	float r = frandom() * total_weight;
-
-	for (size_t i = 0; i < num_picked_monsters; i++)
-		if (r < picked_monsters[i].weight)
-			return picked_monsters[i].item->classname;
-
-	return nullptr;
-}
-
-static void Horde_RunSpawning() {
-	if (notGT(GT_HORDE))
-		return;
-
-	bool warmup = level.match_state == MATCH_WARMUP_DEFAULT || level.match_state == MATCH_WARMUP_READYUP;
-	
-	if (!warmup && level.round_state != ROUND_IN_PROGRESS)
-		return;
-
-	if (warmup && (level.total_monsters - level.killed_monsters >= 30))
-		return;
-
-	if (level.horde_all_spawned)
-		return;
-
-	if (level.horde_monster_spawn_time <= level.time) {
-		gentity_t *e = G_Spawn();
-		e->classname = Horde_PickMonster();
-		select_spawn_result_t result = SelectDeathmatchSpawnPoint(nullptr, vec3_origin, SPAWN_FARTHEST, false, true, false, false);
-
-		if (result.any_valid) {
-			e->s.origin = result.spot->s.origin;
-			e->s.angles = result.spot->s.angles;
-
-			e->item = Horde_PickItem();
-			ED_CallSpawn(e);
-			level.horde_monster_spawn_time = warmup ? level.time + 5_sec : level.time + random_time(0.3_sec, 0.5_sec);
-
-			e->enemy = FindClosestPlayerToPoint(e->s.origin);
-			if (e->enemy)
-				FoundTarget(e);
-
-			if (!warmup) {
-				level.horde_num_monsters_to_spawn--;
-
-				if (!level.horde_num_monsters_to_spawn) {
-					//gi.LocBroadcast_Print(PRINT_CENTER, "All monsters spawned.\nClean up time!");
-					level.horde_all_spawned = true;
-				}
-			}
-		} else
-			level.horde_monster_spawn_time = warmup ? level.time + 5_sec : level.time + 1_sec;
-	}
-}
-
-static void Horde_Init() {
-	// this crashes the game
-/*
-	if (notGT(GT_HORDE))
-		return;
-
-	// precache all items
-	for (auto &item : itemlist)
-		PrecacheItem(&item);
-
-	// all monsters too
-	for (auto &monster : monsters) {
-		gentity_t *e = G_Spawn();
-		e->classname = monster.classname;
-		ED_CallSpawn(e);
-		G_FreeEntity(e);
-	}
-	*/
-}
-
-static bool Horde_AllMonstersDead() {
-	for (size_t i = 0; i < globals.max_entities; i++) {
-		if (!g_entities[i].inuse)
-			continue;
-		else if (g_entities[i].svflags & SVF_MONSTER) {
-			if (!g_entities[i].deadflag && g_entities[i].health > 0)
-				return false;
-		}
-	}
-
-	return true;
-}
-
-// =================================================
-
 
 void G_LoadMOTD() {
 	// load up ent override
@@ -600,205 +303,6 @@ static void CheckRuleset() {
 	gi.LocBroadcast_Print(PRINT_HIGH, "Ruleset: {}\n", rs_long_name[(int)game.ruleset]);
 }
 
-static void InitGametype() {
-	constexpr const char *COOP = "coop";
-	bool force_dm = false;
-
-	if (g_gametype->integer < 0 || g_gametype->integer >= GT_NUM_GAMETYPES)
-		gi.cvar_forceset("g_gametype", G_Fmt("{}", clamp(g_gametype->integer, (int)GT_FIRST, (int)GT_LAST)).data());
-	
-	if (ctf->integer) {
-		force_dm = true;
-		// force coop off
-		if (coop->integer)
-			gi.cvar_set(COOP, "0");
-		// force tdm off
-		if (teamplay->integer)
-			gi.cvar_set("teamplay", "0");
-	}
-	if (teamplay->integer) {
-		force_dm = true;
-		// force coop off
-		if (coop->integer)
-			gi.cvar_set(COOP, "0");
-	}
-
-	if (force_dm && !deathmatch->integer) {
-		gi.Com_Print("Forcing deathmatch.\n");
-		gi.cvar_forceset("deathmatch", "1");
-	}
-
-	// force even maxplayers value during teamplay
-	if (Teams()) {
-		int pmax = maxplayers->integer;
-
-		if (pmax != floor(pmax / 2))
-			gi.cvar_set("maxplayers", G_Fmt("{}", floor(pmax / 2) * 2).data());
-	}
-}
-
-void ChangeGametype(gametype_t gt) {
-	switch (gt) {
-	case gametype_t::GT_CTF:
-		if (!ctf->integer)
-			gi.cvar_forceset("ctf", "1");
-		break;
-	case gametype_t::GT_TDM:
-		if (!teamplay->integer)
-			gi.cvar_forceset("teamplay", "1");
-		break;
-	default:
-		if (ctf->integer)
-			gi.cvar_forceset("ctf", "0");
-		if (teamplay->integer)
-			gi.cvar_forceset("teamplay", "0");
-		break;
-	}
-
-	if (!deathmatch->integer) {
-		gi.Com_Print("Forcing deathmatch.\n");
-		gi.cvar_forceset("deathmatch", "1");
-	}
-
-	if ((int)gt != g_gametype->integer)
-		gi.cvar_forceset("g_gametype", G_Fmt("{}", (int)gt).data());
-}
-
-int gt_teamplay = 0;
-int gt_ctf = 0;
-int gt_g_gametype = 0;
-bool gt_teams_on = false;
-gametype_t gt_check = GT_NONE;
-void GT_Changes() {
-	if (!deathmatch->integer)
-		return;
-
-	// do these checks only once level has initialised
-	if (!level.init)
-		return;
-
-	bool changed = false, team_reset = false;
-	gametype_t gt = gametype_t::GT_NONE;
-
-	if (gt_g_gametype != g_gametype->modified_count) {
-		gt = (gametype_t)clamp(g_gametype->integer, (int)GT_FIRST, (int)GT_LAST);
-
-		if (gt != gt_check) {
-			switch (gt) {
-			case gametype_t::GT_TDM:
-				if (!teamplay->integer)
-					gi.cvar_forceset("teamplay", "1");
-				break;
-			case gametype_t::GT_CTF:
-				if (!ctf->integer)
-					gi.cvar_forceset("ctf", "1");
-				break;
-			default:
-				if (teamplay->integer)
-					gi.cvar_forceset("teamplay", "0");
-				if (ctf->integer)
-					gi.cvar_forceset("ctf", "0");
-				break;
-			}
-			gt_teamplay = teamplay->modified_count;
-			gt_ctf = ctf->modified_count;
-			changed = true;
-		}
-	}
-
-	if (!changed) {
-		if (gt_teamplay != teamplay->modified_count) {
-			if (teamplay->integer) {
-				gt = gametype_t::GT_TDM;
-				if (!teamplay->integer)
-					gi.cvar_forceset("teamplay", "1");
-				if (ctf->integer)
-					gi.cvar_forceset("ctf", "0");
-			} else {
-				gt = gametype_t::GT_FFA;
-				if (teamplay->integer)
-					gi.cvar_forceset("teamplay", "0");
-				if (ctf->integer)
-					gi.cvar_forceset("ctf", "0");
-			}
-			changed = true;
-			gt_teamplay = teamplay->modified_count;
-			gt_ctf = ctf->modified_count;
-		}
-		if (gt_ctf != ctf->modified_count) {
-			if (ctf->integer) {
-				gt = gametype_t::GT_CTF;
-				if (teamplay->integer)
-					gi.cvar_forceset("teamplay", "0");
-				if (!ctf->integer)
-					gi.cvar_forceset("ctf", "1");
-			} else {
-				gt = gametype_t::GT_TDM;
-				if (!teamplay->integer)
-					gi.cvar_forceset("teamplay", "1");
-				if (ctf->integer)
-					gi.cvar_forceset("ctf", "0");
-			}
-			changed = true;
-			gt_teamplay = teamplay->modified_count;
-			gt_ctf = ctf->modified_count;
-		}
-	}
-
-	if (!changed || gt == gametype_t::GT_NONE)
-		return;
-
-	//gi.Com_PrintFmt("GAMETYPE = {}\n", (int)gt);
-	
-	if (gt_teams_on != Teams()) {
-		team_reset = true;
-		gt_teams_on = Teams();
-	}
-
-	if (team_reset) {
-		// move all to spectator first
-		for (auto ec : active_clients()) {
-			SetIntermissionPoint();
-
-			ec->s.origin = level.intermission_origin;
-			ec->client->ps.pmove.origin = level.intermission_origin;
-			ec->client->ps.viewangles = level.intermission_angle;
-
-			ec->client->awaiting_respawn = true;
-			ec->client->ps.pmove.pm_type = PM_FREEZE;
-			ec->client->ps.rdflags = RDF_NONE;
-			ec->deadflag = false;
-			ec->solid = SOLID_NOT;
-			ec->movetype = MOVETYPE_FREECAM;
-			ec->s.modelindex = 0;
-			ec->svflags |= SVF_NOCLIENT;
-			gi.linkentity(ec);
-		}
-
-		// set to team and reset match
-		for (auto ec : active_clients()) {
-			if (!ClientIsPlaying(ec->client))
-				continue;
-			SetTeam(ec, PickTeam(-1), false, false, true);
-		}
-	}
-
-	if ((int)gt != gt_check) {
-		gi.cvar_forceset("g_gametype", G_Fmt("{}", (int)gt).data());
-		gt_g_gametype = g_gametype->modified_count;
-		gt_check = (gametype_t)g_gametype->integer;
-	} else return;
-
-	//TODO: save ent string so we can simply reload it and Match_Reset
-	//gi.AddCommandString("map_restart");
-
-	gi.AddCommandString(G_Fmt("gamemap {}\n", level.mapname).data());
-
-	GT_PrecacheAssets();
-	GT_SetLongName();
-	gi.LocBroadcast_Print(PRINT_CENTER, "{}", level.gametype_name);
-}
-
 /*
 ============
 PreInitGame
@@ -816,9 +320,7 @@ static void PreInitGame() {
 	deathmatch = gi.cvar("deathmatch", "1", CVAR_LATCH);
 	teamplay = gi.cvar("teamplay", "0", CVAR_SERVERINFO);
 	ctf = gi.cvar("ctf", "0", CVAR_SERVERINFO);
-	g_gametype = gi.cvar("g_gametype", G_Fmt("{}", (int)GT_FFA).data(), CVAR_SERVERINFO);
 	coop = gi.cvar("coop", "0", CVAR_LATCH);
-	InitGametype();
 }
 
 /*
@@ -851,8 +353,6 @@ static void InitGame() {
 
 	g_stopspeed = gi.cvar("g_stopspeed", "100", CVAR_NOFLAGS);
 
-	g_horde_starting_wave = gi.cvar("g_horde_starting_wave", "1", CVAR_SERVERINFO | CVAR_LATCH);
-
 	g_huntercam = gi.cvar("g_huntercam", "1", CVAR_SERVERINFO | CVAR_LATCH);
 	g_dm_strong_mines = gi.cvar("g_dm_strong_mines", "0", CVAR_NOFLAGS);
 	g_dm_random_items = gi.cvar("g_dm_random_items", "0", CVAR_NOFLAGS);
@@ -861,7 +361,6 @@ static void InitGame() {
 	g_instagib = gi.cvar("g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH);
 	g_instagib_splash = gi.cvar("g_instagib_splash", "0", CVAR_NOFLAGS);
 	g_owner_auto_join = gi.cvar("g_owner_auto_join", "1", CVAR_NOFLAGS);
-	g_gametype_cfg = gi.cvar("g_gametype_cfg", "1", CVAR_NOFLAGS);
 	g_quadhog = gi.cvar("g_quadhog", "0", CVAR_SERVERINFO | CVAR_LATCH);
 	g_nadefest = gi.cvar("g_nadefest", "0", CVAR_SERVERINFO | CVAR_LATCH);
 	g_frenzy = gi.cvar("g_frenzy", "0", CVAR_SERVERINFO | CVAR_LATCH);
@@ -1086,22 +585,11 @@ static void InitGame() {
 
 	level.total_player_deaths = 0;
 
-	gt_teamplay = teamplay->modified_count;
-	gt_ctf = ctf->modified_count;
-	gt_g_gametype = g_gametype->modified_count;
-	gt_teams_on = Teams();
-
-	Horde_Init();
-
 	G_LoadMOTD();
 
 	if (g_dm_exec_level_cfg->integer)
 		gi.AddCommandString(G_Fmt("exec {}\n", level.mapname).data());
 
-	if (g_gametype_cfg->integer && deathmatch->integer) {
-		//gi.Com_PrintFmt("exec gt-{}.cfg\n", gt_short_name_upper[g_gametype->integer]);
-		gi.AddCommandString(G_Fmt("exec gt-{}.cfg\n", gt_short_name_upper[g_gametype->integer]).data());
-	}
 }
 
 //===================================================================
@@ -1165,32 +653,6 @@ static void Entities_ItemTeams_Reset() {
 		for (count = 0, ent = master; count < choice; ent = ent->chain, count++)
 			;
 	}
-	/*
-	for (ent = g_entities + 1, i = 1; i < globals.num_entities; i++, ent++) {
-		if (!ent->inuse)
-			continue;
-
-		if (!ent->team)
-			continue;
-
-		if (!ent->item)
-			continue;
-
-		ent->flags &= ~FL_TEAMSLAVE;
-		ent->chain = ent->teamchain;
-		ent->teamchain = nullptr;
-
-		ent->svflags |= SVF_NOCLIENT;
-		ent->solid = SOLID_NOT;
-
-		if (ent == ent->teammaster) {
-			ent->nextthink = level.time + 10_hz;
-			if (!ent->think)
-				ent->think = RespawnItem;
-		} else
-			ent->nextthink = 0_sec;
-	}
-	*/
 }
 
 /*
@@ -1243,7 +705,6 @@ static void Entities_Reset(bool reset_players, bool reset_ghost, bool reset_scor
 	
 	// reset the level items
 	Tech_Reset();
-	CTF_ResetFlags();
 
 	Monsters_KillAll();
 
@@ -1263,10 +724,6 @@ static void Entities_Reset(bool reset_players, bool reset_ghost, bool reset_scor
 		} else if ((ent->svflags & SVF_PROJECTILE) || (ent->clipmask & CONTENTS_PROJECTILECLIP)) {
 			G_FreeEntity(ent);
 		} else if (ent->item) {
-			// already processed in CTF_ResetFlags()
-			if (ent->item->id == IT_FLAG_RED || ent->item->id == IT_FLAG_BLUE)
-				continue;
-
 			if (ent->spawnflags.has(SPAWNFLAG_ITEM_DROPPED | SPAWNFLAG_ITEM_DROPPED_PLAYER)) {
 				//G_FreeEntity(ent);
 				ent->nextthink = level.time;
@@ -1303,113 +760,20 @@ static void Entities_Reset(bool reset_players, bool reset_ghost, bool reset_scor
 		}
 	}
 }
-#if 0
-static int SortRoundScores(const void *a, const void *b) {
-	gclient_t *ca, *cb;
 
-	ca = &game.clients[*(int *)a];
-	cb = &game.clients[*(int *)b];
-
-	// sort special clients last
-	if (ca->sess.spectator_client < 0)
-		return 1;
-	if (cb->sess.spectator_client < 0)
-		return -1;
-
-	// then connecting clients
-	if (!ca->pers.connected)
-		return 1;
-	if (!cb->pers.connected)
-		return -1;
-
-	// then spectators
-	if (!ClientIsPlaying(ca) && !ClientIsPlaying(cb)) {
-		if (ca->sess.duel_queued && cb->sess.duel_queued) {
-			if (ca->resp.team_join_time > cb->resp.team_join_time)
-				return -1;
-			if (ca->resp.team_join_time < cb->resp.team_join_time)
-				return 1;
-		}
-		if (ca->sess.duel_queued)
-			return -1;
-		if (cb->sess.duel_queued)
-			return 1;
-		if (ca->resp.team_join_time > cb->resp.team_join_time)
-			return -1;
-		if (ca->resp.team_join_time < cb->resp.team_join_time)
-			return 1;
-		return 0;
-	}
-	if (!ClientIsPlaying(ca))
-		return 1;
-	if (!ClientIsPlaying(cb))
-		return -1;
-
-	// then sort by score
-	if (ca->resp.score - ca->resp.old_score > cb->resp.score - cb->resp.old_score)
-		return -1;
-	if (ca->resp.score - ca->resp.old_score < cb->resp.score - cb->resp.old_score)
-		return 1;
-
-	return 0;
-}
-
-gclient_t *Round_SaveOldPlayerScore() {
-	gclient_t *cl = nullptr;
-	int high = 0;
-	for (auto ec : active_clients()) {
-
-		ec->client->resp.old_score = ec->client->resp.score;
-	}
-}
-#endif
 /*
 =============
 Round_StartNew
 =============
 */
 static bool Round_StartNew() {
-	if (!(GTF(GTF_ROUNDS))) {
-		level.round_state = roundst_t::ROUND_NONE;
-		level.round_state_timer = 0_sec;
-		return false;
-	}
-
-	bool horde = GT(GT_HORDE);
-
 	level.round_state = roundst_t::ROUND_COUNTDOWN;
 	level.round_state_timer = level.time + gtime_t::from_sec(g_round_countdown->integer);
 	level.countdown_check = 0_sec;
 
-	if (!horde)
-		Entities_Reset(!horde, false, false);
+	Entities_Reset(true, false, false);
 
-	if (GT(GT_STRIKE)) {
-		level.strike_red_attacks ^= true;
-		level.strike_flag_touch = false;
-
-		int round_num;
-		if (level.round_number && (!level.strike_turn_red && level.strike_turn_blue ||
-			level.strike_turn_red && !level.strike_turn_blue))
-			round_num = level.round_number;
-		else {
-			round_num = level.round_number + 1;
-		}
-		BroadcastTeamMessage(TEAM_RED, PRINT_CENTER, G_Fmt("Your team is on {}!\nRound {} - Begins in...", level.strike_red_attacks ? "OFFENSE" : "DEFENSE", round_num).data());
-		BroadcastTeamMessage(TEAM_BLUE, PRINT_CENTER, G_Fmt("Your team is on {}!\nRound {} - Begins in...", !level.strike_red_attacks ? "OFFENSE" : "DEFENSE", round_num).data());
-	} else {
-		int round_num;
-
-		if (horde && !level.round_number && g_horde_starting_wave->integer > 0)
-			round_num = g_horde_starting_wave->integer;
-		else
-			round_num = level.round_number + 1;
-
-		if (GT(GT_RR) && roundlimit->integer) {
-			gi.LocBroadcast_Print(PRINT_CENTER, "{} {} of {}\nBegins in...", horde ? "Wave" : "Round", round_num, roundlimit->integer);
-		} else
-			gi.LocBroadcast_Print(PRINT_CENTER, "{} {}\nBegins in...", horde ? "Wave" : "Round", round_num);
-	}
+	gi.LocBroadcast_Print(PRINT_CENTER, "Round {}\nBegins in...", level.round_number + 1);
 
 	return true;
 }
@@ -1420,20 +784,12 @@ Round_End
 =============
 */
 void Round_End() {
-	// reset if not round based
-	if (!(GTF(GTF_ROUNDS))) {
-		level.round_state = roundst_t::ROUND_NONE;
-		level.round_state_timer = 0_sec;
-		return;
-	}
-
 	// there must be a round to end
 	if (level.round_state != ROUND_IN_PROGRESS)
 		return;
 
 	level.round_state = roundst_t::ROUND_ENDED;
 	level.round_state_timer = level.time + 3_sec;
-	level.horde_all_spawned = false;
 }
 
 /*
@@ -1470,9 +826,6 @@ void Match_Start() {
 
 	gi.LocBroadcast_Print(PRINT_TTS, "The match has started!\n");
 
-	if (GT(GT_STRIKE))
-		level.strike_red_attacks = brandom();
-
 	if (Round_StartNew())
 		return;
 
@@ -1506,104 +859,6 @@ void Match_Reset() {
 	CalculateRanks();
 
 	gi.LocBroadcast_Print(PRINT_TTS, "The match has been reset.\n");
-}
-
-/*
-=============
-Duel_AddPlayer
-
-If there are less than two players in the arena, place the
-next queued player in the game and restart
-=============
-*/
-static bool Duel_AddPlayer(void) {
-	if (notGT(GT_DUEL))
-		return true;
-
-	if (level.num_playing_clients >= 2)
-		return true;
-
-	// never change during intermission or outside of warmup
-	if (level.match_state > matchst_t::MATCH_WARMUP_DEFAULT || level.intermission_time || level.intermission_queued)
-		return false;
-
-	gclient_t *next_in_line = nullptr;
-	
-	for (auto ec : active_clients()) {
-		if (ClientIsPlaying(ec->client))
-			continue;
-
-		//gi.Com_PrintFmt("Duel: {}, join time={}\n", ec->client->resp.netname, ec->client->resp.team_join_time.milliseconds());
-
-		if (!ec->client->sess.duel_queued)
-			continue;
-
-		if (!next_in_line || ec->client->resp.team_join_time < next_in_line->resp.team_join_time) {
-			//gi.Com_PrintFmt("Duel: A next-in-line considered: {}, join time={}\n", ec->client->resp.netname, ec->client->resp.team_join_time.milliseconds());
-			next_in_line = ec->client;
-		}
-	}
-
-	if (!next_in_line)
-		return false;
-	/*
-	level.match_state_timer = 0_sec;
-	level.match_state = matchst_t::MATCH_WARMUP_DEFAULT;
-	level.warmup_requisite = warmupreq_t::WARMUP_REQ_NONE;
-	level.warmup_notice_time = 0_sec;
-	*/
-	// set them to free-for-all team
-	SetTeam(&g_entities[next_in_line - game.clients + 1], TEAM_FREE, false, true, false);
-
-	return false;
-}
-
-/*
-=======================
-Duel_RemoveLoser
-
-Make the loser a queued player at the back of the line
-=======================
-*/
-static void Duel_RemoveLoser(void) {
-	if (level.num_playing_clients != 2)
-		return;
-	
-	gentity_t *ent = &g_entities[level.sorted_clients[1] + 1];
-
-	if (!ent || !ent->client || !ent->client->pers.connected)
-		return;
-
-	if (g_verbose->integer)
-		gi.Com_PrintFmt( "Duel: Moving the loser, {}, to end of queue.\n", ent->client->resp.netname);
-
-	// make them a queued player
-	SetTeam(ent, TEAM_NONE, false, true, false);
-}
-
-/*
-=======================
-Duel_MatchEnd_AdjustScores
-=======================
-*/
-static void Duel_MatchEnd_AdjustScores(void) {
-	if (notGT(GT_DUEL))
-		return;
-
-	int client_num;
-
-	client_num = level.sorted_clients[0];
-	if (game.clients[client_num].pers.connected) {
-		game.clients[client_num].sess.wins++;
-		//ClientUserinfoChanged(&g_entities[client_num], g_entities[client_num].client->pers.userinfo);
-	}
-
-	client_num = level.sorted_clients[1];
-	if (game.clients[client_num].pers.connected) {
-		// handled in SetTeam
-		//game.clients[client_num].sess.losses++;
-		//ClientUserinfoChanged(&g_entities[client_num], g_entities[client_num].client->pers.userinfo);
-	}
 }
 
 /*
@@ -1686,9 +941,6 @@ CheckDMRoundState
 =============
 */
 static void CheckDMRoundState(void) {
-	if (!(GTF(GTF_ROUNDS)))
-		return;
-
 	if (level.match_state != matchst_t::MATCH_IN_PROGRESS)
 		return;
 
@@ -1696,10 +948,6 @@ static void CheckDMRoundState(void) {
 	if (level.round_state == roundst_t::ROUND_NONE || level.round_state == roundst_t::ROUND_ENDED) {
 		if (level.round_state_timer > level.time)
 			return;
-
-		if (GT(GT_RR) && level.round_state == roundst_t::ROUND_ENDED) {
-			TeamShuffle();
-		}
 
 		Round_StartNew();
 		return;
@@ -1715,172 +963,91 @@ static void CheckDMRoundState(void) {
 			level.round_state_timer = level.time + gtime_t::from_min(roundtimelimit->value);
 
 			bool turn = false;
-			if (GT(GT_STRIKE)) {
-				if (!level.strike_turn_red && !level.strike_turn_blue) {
-					level.strike_turn_red = level.strike_red_attacks;
-					level.strike_turn_blue = !level.strike_red_attacks;
-				} else if (!level.strike_turn_red && level.strike_red_attacks) {
-					level.strike_turn_red = true;
-					turn = true;
-				} else if (!level.strike_turn_blue && !level.strike_red_attacks) {
-					level.strike_turn_blue = true;
-					turn = true;
-				} else {
-					level.strike_turn_red = level.strike_red_attacks;
-					level.strike_turn_blue = !level.strike_red_attacks;
-				}
-			}
-			if (!turn) {
-				if (GT(GT_HORDE) && !level.round_number && g_horde_starting_wave->integer > 0)
-					level.round_number = g_horde_starting_wave->integer;
-				else
-					level.round_number++;
-			}
-			if (GT(GT_STRIKE)) {
-				gi.LocBroadcast_Print(PRINT_CHAT, "Round {}: {} is attacking!\n", level.round_number, Teams_TeamName(level.strike_red_attacks ? TEAM_RED : TEAM_BLUE));
-				const char *msg[2] = { "DEFEND", "CAPTURE" };
-				BroadcastTeamMessage(TEAM_RED, PRINT_CENTER, G_Fmt("Round {} has begun!\n{} THE FLAG!", level.round_number, msg[level.strike_red_attacks]).data());
-				BroadcastTeamMessage(TEAM_BLUE, PRINT_CENTER, G_Fmt("Round {} has begun!\n{} THE FLAG!", level.round_number, msg[!level.strike_red_attacks]).data());
-			} else {
-				bool horde = GT(GT_HORDE);
-				gi.LocBroadcast_Print(PRINT_CHAT, "{} {} has begun!\n", horde ? "Wave" : "Round", level.round_number);
-				gi.LocBroadcast_Print(PRINT_CENTER, horde ? (brandom() ? "INCOMING!" : "LOCK AND LOAD!") : "FIGHT!");
+			if (!turn)
+				level.round_number++;
 
-				if (horde) {
-					level.horde_num_monsters_to_spawn = clamp(15 + (level.round_number * 5), 20, 80);
-					level.horde_monster_spawn_time = level.time + 500_ms;	// random_time(1_sec, 2_sec);
-				}
-			}
+			gi.LocBroadcast_Print(PRINT_CHAT, "Round {} has begun!\n", level.round_number);
+			gi.LocBroadcast_Print(PRINT_CENTER, "GET TO THE CHOPPUH!");
 		}
 		return;
 	}
 
 	// end round
 	if (level.round_state == roundst_t::ROUND_IN_PROGRESS) {
-		switch (g_gametype->integer) {
-		case GT_CA:
-		{
-			int8_t count_red = 0, count_blue = 0;
-			int8_t count_living_red = 0, count_living_blue = 0;
+		int8_t count_red = 0, count_blue = 0;
+		int8_t count_living_red = 0, count_living_blue = 0;
 
-			for (auto ec : active_clients()) {
-				switch (ec->client->sess.team) {
-				case TEAM_RED:
-					count_red++;
-					if (!ec->client->eliminated)
-						count_living_red++;
-					break;
-				case TEAM_BLUE:
-					count_blue++;
-					if (!ec->client->eliminated)
-						count_living_blue++;
-					break;
-				}
+		for (auto ec : active_clients()) {
+			switch (ec->client->sess.team) {
+			case TEAM_RED:
+				count_red++;
+				if (!ec->client->eliminated)
+					count_living_red++;
+				break;
+			case TEAM_BLUE:
+				count_blue++;
+				if (!ec->client->eliminated)
+					count_living_blue++;
+				break;
 			}
-
-			// check eliminated first
-			if (!count_living_red && count_living_blue) {
-				int points = GT(GT_STRIKE) ? (level.strike_red_attacks ? 0 : 2) : 1;
-				G_AdjustTeamScore(TEAM_BLUE, points);
-				if (GT(GT_STRIKE))
-					gi.LocBroadcast_Print(PRINT_CENTER, "Turn has ended.\n{} successfully {}!\n", Teams_TeamName(TEAM_BLUE), points ? "attacked" : "defended");
-				else
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_BLUE), Teams_TeamName(TEAM_RED));
-				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
-				Round_End();
-				return;
-			}
-			if (!count_living_blue && count_living_red) {
-				int points = GT(GT_STRIKE) ? (!level.strike_red_attacks ? 0 : 2) : 1;
-				G_AdjustTeamScore(TEAM_RED, points);
-				if (GT(GT_STRIKE)) {
-					gi.LocBroadcast_Print(PRINT_CENTER, "Turn has ended.\n{} successfully {}!\n", Teams_TeamName(TEAM_RED), points ? "attacked" : "defended");
-				} else
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_RED), Teams_TeamName(TEAM_BLUE));
-				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
-				Round_End();
-				return;
-			}
-			break;
 		}
-		case GT_HORDE:
-			Horde_RunSpawning();
-			//if (level.horde_all_spawned && Horde_AllMonstersDead()) {
-			if (level.horde_all_spawned && !(level.total_monsters - level.killed_monsters)) {
-				gi.LocBroadcast_Print(PRINT_CENTER, "Monsters eliminated!\n");
-				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
-				Round_End();
-				return;
-			}
-			break;
 
-		case GT_RR:
-			if (!level.num_playing_red || !level.num_playing_blue) {
-				gclient_t *cl = &game.clients[level.sorted_clients[0]];
-
-				gi.Broadcast_Print(PRINT_CENTER, "Round Ends!\n");
-
-				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
-
-				if (level.round_number + 1 >= roundlimit->integer) {
-					QueueIntermission("MATCH ENDED", false, false);
-				} else
-					Round_End();
-				return;
-			}
-			break;
-
+		// check eliminated first
+		if (!count_living_red && count_living_blue) {
+			int points = 1;
+			G_AdjustTeamScore(TEAM_BLUE, points);
+			gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_BLUE), Teams_TeamName(TEAM_RED));
+			gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
+			Round_End();
+			return;
+		}
+		if (!count_living_blue && count_living_red) {
+			int points = 1;
+			G_AdjustTeamScore(TEAM_RED, points);
+			gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_RED), Teams_TeamName(TEAM_BLUE));
+			gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
+			Round_End();
+			return;
 		}
 
 		// hit the round time limit, check any other winning conditions
 		if (level.time >= level.round_state_timer) {
-			// highest number of players remaining or highest total health wins
-			if (GT(GT_CA)) {
-				if (level.num_living_red > level.num_living_blue) {
+			if (level.num_living_red > level.num_living_blue) {
+				G_AdjustTeamScore(TEAM_RED, 1);
+				gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_RED), level.num_living_red, level.num_living_blue);
+				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
+			} else if (level.num_living_blue > level.num_living_red) {
+				G_AdjustTeamScore(TEAM_BLUE, 1);
+				gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_BLUE), level.num_living_blue, level.num_living_red);
+				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
+			} else {
+				int total_health_red = 0, total_health_blue = 0;
+
+				for (auto ec : active_players()) {
+					if (ec->health <= 0)
+						continue;
+					switch (ec->client->sess.team) {
+					case TEAM_RED:
+						total_health_red += ec->health;
+						break;
+					case TEAM_BLUE:
+						total_health_blue += ec->health;
+						break;
+					}
+				}
+
+				if (total_health_red > total_health_blue) {
 					G_AdjustTeamScore(TEAM_RED, 1);
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_RED), level.num_living_red, level.num_living_blue);
+					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_RED), total_health_red, total_health_blue);
 					gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
-				} else if (level.num_living_blue > level.num_living_red) {
+				} else if (total_health_blue > total_health_red) {
 					G_AdjustTeamScore(TEAM_BLUE, 1);
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_BLUE), level.num_living_blue, level.num_living_red);
+					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_BLUE), total_health_blue, total_health_red);
 					gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 				} else {
-					int total_health_red = 0, total_health_blue = 0;
-
-					for (auto ec : active_players()) {
-						if (ec->health <= 0)
-							continue;
-						switch (ec->client->sess.team) {
-						case TEAM_RED:
-							total_health_red += ec->health;
-							break;
-						case TEAM_BLUE:
-							total_health_blue += ec->health;
-							break;
-						}
-					}
-
-					if (total_health_red > total_health_blue) {
-						G_AdjustTeamScore(TEAM_RED, 1);
-						gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_RED), total_health_red, total_health_blue);
-						gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
-					} else if (total_health_blue > total_health_red) {
-						G_AdjustTeamScore(TEAM_BLUE, 1);
-						gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_BLUE), total_health_blue, total_health_red);
-						gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
-					} else {
-						gi.LocBroadcast_Print(PRINT_CENTER, "Round draw!");
-					}
-				}
-			} else {
-				if (GT(GT_STRIKE)) {
-					if (level.strike_flag_touch)
-						gi.LocBroadcast_Print(PRINT_CENTER, "Turn has ended.\n{} scored a point!\n", Teams_TeamName(level.strike_red_attacks ? TEAM_RED : TEAM_BLUE));
-					else
-						gi.LocBroadcast_Print(PRINT_CENTER, "Turn has ended.\n{} successfully defended!", Teams_TeamName(!level.strike_red_attacks ? TEAM_RED : TEAM_BLUE));
+					gi.LocBroadcast_Print(PRINT_CENTER, "Round draw!");
 				}
 			}
-			//gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n", Teams_TeamName(TEAM_BLUE));
 			Round_End();
 			return;
 		}
@@ -1916,25 +1083,7 @@ CheckDMMatchEndWarning
 =============
 */
 static void CheckDMMatchEndWarning(void) {
-	if (GTF(GTF_ROUNDS))
-		return;
 
-	if (level.match_state != matchst_t::MATCH_IN_PROGRESS || !timelimit->value) {
-		if (level.matchendwarn_check)
-			level.matchendwarn_check = 0_sec;
-		return;
-	}
-
-	int t = (level.match_time + gtime_t::from_min(timelimit->value) - level.time).seconds<int>();	// +1;
-
-	if (!level.matchendwarn_check || level.matchendwarn_check.seconds<int>() > t) {
-		if (t && (t == 30 || t == 20 || t <= 10)) {
-			gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex(G_Fmt("world/{}{}.wav", t, t >= 20 ? "sec" : "").data()), 1, ATTN_NONE, 0);
-			if (t >= 10)
-				gi.LocBroadcast_Print(PRINT_HIGH, "{} second warning!\n", t);
-		}
-		level.matchendwarn_check = gtime_t::from_sec(t);
-	}
 }
 
 /*
@@ -1958,11 +1107,7 @@ static void CheckDMWarmupState(void) {
 		return;
 	}
 
-	// duel: pull in a queued spectator if needed
-	if (!Duel_AddPlayer())
-		return;
-
-	min_players = GT(GT_DUEL) ? 2 : minplayers->integer;
+	min_players = minplayers->integer;
 	if (level.match_state < matchst_t::MATCH_COUNTDOWN && !g_dm_do_warmup->integer && level.num_playing_clients >= min_players) {
 		Match_Start();
 		return;
@@ -1981,22 +1126,12 @@ static void CheckDMWarmupState(void) {
 	if (level.match_state == matchst_t::MATCH_WARMUP_DELAYED && level.match_state_timer > level.time)
 		return;
 
-	if (level.match_state == matchst_t::MATCH_WARMUP_DEFAULT || level.match_state == matchst_t::MATCH_WARMUP_READYUP)
-		Horde_RunSpawning();
-
 	bool not_enough = false;
 	bool teams_imba = false;
 
-	if (Teams()) {
-		if (g_teamplay_force_balance->integer && abs(level.num_playing_red - level.num_playing_blue) > 1) {
-			teams_imba = true;
-		} else if (level.num_playing_red < 1 || level.num_playing_blue < 1 || level.num_playing_clients < min_players) {
-			not_enough = true;
-		}
-	} else if (GT(GT_DUEL)) {
-		if (level.num_playing_clients != 2)
-			not_enough = true;
-	} else if (level.num_playing_clients < min_players) {
+	if (g_teamplay_force_balance->integer && abs(level.num_playing_red - level.num_playing_blue) > 1) {
+		teams_imba = true;
+	} else if (level.num_playing_red < 1 || level.num_playing_blue < 1 || level.num_playing_clients < min_players) {
 		not_enough = true;
 	}
 
@@ -2059,10 +1194,7 @@ countdown:
 				//gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("world/10_0.wav"), 1, ATTN_NONE, 0);
 
 				// announce it
-				if (GT(GT_DUEL) && &game.clients[level.sorted_clients[0]] && &game.clients[level.sorted_clients[1]])
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} vs {}\nBegins in...", game.clients[level.sorted_clients[0]].resp.netname, game.clients[level.sorted_clients[1]].resp.netname);
-				else
-					gi.LocBroadcast_Print(PRINT_CENTER, "{}\nBegins in...", level.gametype_name);
+				gi.Broadcast_Print(PRINT_CENTER, "Predator\nBegins in...");
 			} else {
 				level.match_state_timer = 0_ms;
 				goto start;
@@ -2296,7 +1428,7 @@ static bool ScoreIsTied(void) {
 	if (level.num_playing_clients < 2)
 		return false;
 
-	if (Teams() && notGT(GT_RR))
+	if (Teams())
 		return level.team_scores[TEAM_RED] == level.team_scores[TEAM_BLUE];
 
 	return game.clients[level.sorted_clients[0]].resp.score == game.clients[level.sorted_clients[1]].resp.score;
@@ -2329,16 +1461,6 @@ static int SortRanks(const void *a, const void *b) {
 	
 	// then spectators
 	if (!ClientIsPlaying(ca) && !ClientIsPlaying(cb)) {
-		if (ca->sess.duel_queued && cb->sess.duel_queued) {
-			if (ca->resp.team_join_time > cb->resp.team_join_time)
-				return -1;
-			if (ca->resp.team_join_time < cb->resp.team_join_time)
-				return 1;
-		}
-		if (ca->sess.duel_queued)
-			return -1;
-		if (cb->sess.duel_queued)
-			return 1;
 		if (ca->resp.team_join_time > cb->resp.team_join_time)
 			return -1;
 		if (ca->resp.team_join_time < cb->resp.team_join_time)
@@ -2442,7 +1564,7 @@ void CalculateRanks() {
 	qsort(level.sorted_clients, level.num_connected_clients, sizeof(level.sorted_clients[0]), SortRanks);
 
 	// set the rank value for all clients that are connected and not spectators
-	if (teams && notGT(GT_RR)) {
+	if (teams) {
 		// in team games, rank is just the order of the teams, 0=red, 1=blue, 2=tied
 		for (size_t i = 0; i < level.num_connected_clients; i++) {
 			cl = &game.clients[level.sorted_clients[i]];
@@ -2858,19 +1980,11 @@ void QueueIntermission(const char *msg, bool boo, bool reset) {
 }
 
 int GT_ScoreLimit() {
-	if (GTF(GTF_ROUNDS))
-		return roundlimit->integer;
-	if (GT(GT_CTF))
-		return capturelimit->integer;
-	return fraglimit->integer;
+	return roundlimit->integer;
 }
 
 const char *GT_ScoreLimitString() {
-	if (GT(GT_CTF))
-		return "capture";
-	if (GTF(GTF_ROUNDS))
-		return "round";
-	return "frag";
+	return "round";
 }
 
 /*
@@ -2910,23 +2024,8 @@ void CheckDMExitRules() {
 	if (level.time - level.match_time <= FRAME_TIME_MS)
 		return;
 
-	if (GT(GT_HORDE)) {
-		if ((level.total_monsters - level.killed_monsters) >= 100) {
-			gi.Broadcast_Print(PRINT_CENTER, "DEFEATED!");
-			QueueIntermission("OVERRUN BY MONSTERS!", true, false);
-			return;
-		}
-	}
-
-	if (GTF(GTF_ROUNDS) && level.round_state != roundst_t::ROUND_ENDED)
+	if (level.round_state != roundst_t::ROUND_ENDED)
 		return;
-
-	if (GT(GT_HORDE)) {
-		if (roundlimit->integer > 0 && level.round_number >= roundlimit->integer) {
-			QueueIntermission(G_Fmt("{} WINS with a final score of {}.", game.clients[level.sorted_clients[0]].resp.netname, game.clients[level.sorted_clients[0]].resp.score).data(), false, false);
-			return;
-		}
-	}
 
 	if (!g_dm_allow_no_humans->integer && !level.num_playing_human_clients) {
 		QueueIntermission("No human players remaining.", true, false);
@@ -2938,7 +2037,7 @@ void CheckDMExitRules() {
 		return;
 	}
 
-	bool teams = Teams() && notGT(GT_RR);
+	bool teams = Teams();
 	
 	if (teams && g_teamplay_force_balance->integer) {
 		if (abs(level.num_playing_red - level.num_playing_blue) > 1) {
@@ -2952,17 +2051,13 @@ void CheckDMExitRules() {
 	}
 
 	if (timelimit->value) {
-		if (!(GTF(GTF_ROUNDS)) || level.round_state == roundst_t::ROUND_ENDED) {
+		if (level.round_state == roundst_t::ROUND_ENDED) {
 			if (level.time >= level.match_time + gtime_t::from_min(timelimit->value) + level.overtime) {
 				// check for overtime
 				if (ScoreIsTied()) {
 					bool play = false;
 
-					if (GT(GT_DUEL) && g_dm_overtime->integer > 0) {
-						level.overtime += gtime_t::from_sec(g_dm_overtime->integer);
-						gi.LocBroadcast_Print(PRINT_CENTER, "Overtime!\n{} added", G_TimeString(g_dm_overtime->integer * 1000, false));
-						play = true;
-					} else if (!level.suddendeath) {
+					if (!level.suddendeath) {
 						gi.LocBroadcast_Print(PRINT_CENTER, "Sudden Death!");
 						level.suddendeath = true;
 						play = true;
@@ -3004,19 +2099,6 @@ void CheckDMExitRules() {
 				QueueIntermission(G_Fmt("{} hit the mercylimit ({}).", Teams_TeamName(TEAM_BLUE), mercylimit->integer).data(), true, false);
 				return;
 			}
-		} else {
-			if (notGT(GT_HORDE)) {
-				gclient_t *cl1, *cl2;
-
-				cl1 = &game.clients[level.sorted_clients[0]];
-				cl2 = &game.clients[level.sorted_clients[1]];
-				if (cl1 && cl2) {
-					if (cl1->resp.score >= cl2->resp.score + mercylimit->integer) {
-						QueueIntermission(G_Fmt("{} hit the mercylimit ({}).", cl1->resp.netname, mercylimit->integer).data(), true, false);
-						return;
-					}
-				}
-			}
 		}
 	}
 
@@ -3024,10 +2106,6 @@ void CheckDMExitRules() {
 	if (ScoreIsTied())
 		return;
 
-	// no score limit in horde
-	if (GT(GT_HORDE))
-		return;
-	
 	int	scorelimit = GT_ScoreLimit();
 	if (!scorelimit) return;
 
@@ -3095,9 +2173,6 @@ BeginIntermission
 void BeginIntermission(gentity_t *targ) {
 	if (level.intermission_time)
 		return; // already activated
-
-	// if in a duel, change the wins / losses
-	Duel_MatchEnd_AdjustScores();
 
 	game.autosaved = false;
 
@@ -3190,22 +2265,11 @@ void ExitLevel() {
 
 		const char *s = "";
 
-		if (GT(GT_DUEL)) {
-			gentity_t *e1 = &g_entities[level.sorted_clients[0] + 1];
-			gentity_t *e2 = &g_entities[level.sorted_clients[1] + 1];
-			const char *n1 = e1 ? e1->client->resp.netname : "";
-			const char *n2 = e2 ? e2->client->resp.netname : "";
+		gentity_t *ent = &g_entities[1];
+		const char *name = ent->client->follow_target ? ent->client->follow_target->client->resp.netname : ent->client->resp.netname;
 
-			s = G_Fmt("screenshot {}-vs-{}-{}-{}_{:02}_{:02}-{:02}_{:02}_{:02}\n",
-				n1, n2, level.mapname, 1900 + ltime->tm_year, ltime->tm_mon + 1, ltime->tm_mday, ltime->tm_hour, ltime->tm_min, ltime->tm_sec).data();
-			gi.Com_Print(s);
-		} else {
-			gentity_t *ent = &g_entities[1];
-			const char *name = ent->client->follow_target ? ent->client->follow_target->client->resp.netname : ent->client->resp.netname;
-
-			s = G_Fmt("screenshot {}-{}-{}-{}_{:02}_{:02}-{:02}_{:02}_{:02}\n", gt_short_name_upper[g_gametype->integer],
-				name, level.mapname, 1900 + ltime->tm_year, ltime->tm_mon + 1, ltime->tm_mday, ltime->tm_hour, ltime->tm_min, ltime->tm_sec).data();
-		}
+		s = G_Fmt("screenshot {}-{}-{}_{:02}_{:02}-{:02}_{:02}_{:02}\n",
+			name, level.mapname, 1900 + ltime->tm_year, ltime->tm_mon + 1, ltime->tm_mday, ltime->tm_hour, ltime->tm_min, ltime->tm_sec).data();
 		gi.AddCommandString(s);
 	}
 
@@ -3217,11 +2281,6 @@ void ExitLevel() {
 	}
 
 	ClientEndServerFrames();
-
-	// if we are running a duel, kick the loser to queue,
-	// which will automatically grab the next queued player and restart
-	if (deathmatch->integer && GT(GT_DUEL))
-		Duel_RemoveLoser();
 
 	level.intermission_time = 0_ms;
 
@@ -3261,9 +2320,6 @@ void ExitLevel() {
 	// for N64 mainly, but if we're directly changing to "victorXXX.pcx" then
 	// end game
 	size_t start_offset = (level.changemap[0] == '*' ? 1 : 0);
-
-	if (GT(GT_RR) && level.num_playing_clients > 1 && (!level.num_playing_red || !level.num_playing_blue))
-		TeamShuffle();
 
 	if (strlen(level.changemap) > (6 + start_offset) &&
 		!Q_strncasecmp(level.changemap + start_offset, "victor", 6) &&
@@ -3403,9 +2459,6 @@ Advances the world by 0.1 seconds
 */
 static inline void G_RunFrame_(bool main_loop) {
 	level.in_frame = true;
-
-	// track gametype changes and update accordingly
-	GT_Changes();
 
 	// cancel vote if timed out
 	CheckVote();

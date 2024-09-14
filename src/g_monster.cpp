@@ -409,9 +409,8 @@ void M_SetEffects(gentity_t *ent) {
 }
 
 bool M_AllowSpawn(gentity_t *self) {
-	if (deathmatch->integer && !(ai_allow_dm_spawn->integer || GT(GT_HORDE))) {
+	if (deathmatch->integer && !ai_allow_dm_spawn->integer)
 		return false;
-	}
 	return true;
 }
 
@@ -616,7 +615,6 @@ void M_ProcessPain(gentity_t *e) {
 		if (!e->deadflag) {
 			int32_t score_value = ceil(e->monsterinfo.base_health / 100);
 			if (score_value < 1) score_value = 1;
-			Horde_AdjustPlayerScore(e->monsterinfo.damage_attacker->client, score_value);
 		}
 		e->die(e, e->monsterinfo.damage_inflictor, e->monsterinfo.damage_attacker, e->monsterinfo.damage_blood, e->monsterinfo.damage_from, e->monsterinfo.damage_mod);
 
@@ -900,7 +898,7 @@ THINK(monster_think) (gentity_t *self) -> void {
 	if (!self->inuse || self->think != monster_think)
 		return;
 
-	if (self->hackflags & HACKFLAG_ATTACK_PLAYER || GT(GT_HORDE)) {
+	if (self->hackflags & HACKFLAG_ATTACK_PLAYER) {
 		if (!self->enemy && g_entities[1].inuse && ClientIsPlaying(g_entities[1].client)) {
 			self->enemy = &g_entities[1];
 			FoundTarget(self);

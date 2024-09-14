@@ -196,7 +196,7 @@ static int CheckPowerArmor(gentity_t *ent, const vec3_t &point, const vec3_t &no
 		damage = damage / 3;
 	} else {
 		if (deathmatch->integer)
-			damagePerCell = !!(RS(RS_MM)) ? 1 : GTF(GTF_CTF) ? 1 : 2; // power armor is weaker in DM
+			damagePerCell = !!(RS(RS_MM)) ? 1 : 2;
 		else
 			damagePerCell = 2;
 		pa_te_type = TE_SCREEN_SPARKS;
@@ -554,14 +554,9 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 			knockback = 200;
 	}
 
-/*freeze*/
-	if (GT(GT_FREEZE) && client && client->eliminated)
-		knockback *= 2;
-	else
-/*freeze*/
-		if ((targ->flags & FL_NO_KNOCKBACK) ||
-			((targ->flags & FL_ALIVE_KNOCKBACK_ONLY) && (!targ->deadflag || targ->dead_time != level.time)))
-			knockback = 0;
+	if ((targ->flags & FL_NO_KNOCKBACK) ||
+		((targ->flags & FL_ALIVE_KNOCKBACK_ONLY) && (!targ->deadflag || targ->dead_time != level.time)))
+		knockback = 0;
 
 	// figure momentum add
 	if (!(dflags & DAMAGE_NO_KNOCKBACK)) {
@@ -583,10 +578,6 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 
 			kvel *= g_knockback_scale->value;
 
-			// arena gives a bit more knockback
-			if (GTF(GTF_ARENA))
-				kvel *= 1.25f;
-
 			targ->velocity += kvel;
 		}
 	}
@@ -602,21 +593,10 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 	save = 0;
 
 	if (!(dflags & DAMAGE_NO_PROTECTION)) {
-		if (IsCombatDisabled() || GT(GT_BALL)) {
+		if (IsCombatDisabled()) {
 			take = 0;
 			save = damage;
 		}
-
-/*freeze*/
-#if 0
-		if (GT(GT_FREEZE) && playerDamage(targ, attacker, damage)) {
-			take = 0;
-			save = damage;
-			SpawnDamage(te_sparks, point, normal, save);
-			return;
-		}
-#endif
-/*freeze*/
 
 		// instagib railgun splash never inflicts damage
 		if (mod.id == MOD_RAILGUN_SPLASH) {
@@ -676,27 +656,17 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 			g_teamplay_armor_protect->integer) {
 		psave = asave = 0;
 	} else {
-		if (targ == attacker && GTF(GTF_ARENA) && !g_arena_dmg_armor->integer) {
-			take = 0;
-			save = damage;
-		} else {
-			psave = CheckPowerArmor(targ, point, normal, take, dflags);
-			take -= psave;
+		psave = CheckPowerArmor(targ, point, normal, take, dflags);
+		take -= psave;
 
-			asave = CheckArmor(targ, point, normal, take, te_sparks, dflags);
-			take -= asave;
-		}
+		asave = CheckArmor(targ, point, normal, take, te_sparks, dflags);
+		take -= asave;
 	}
 
 	// treat cheat/powerup savings the same as armor
 	asave += save;
 
 	if (!(dflags & DAMAGE_NO_PROTECTION)) {
-		if (targ == attacker && GTF(GTF_ARENA)) {
-			take = 0;
-			save = 0;	// damage;
-		}
-
 		// check for protection powerup
 		if (take && client && client->pu_time_protection > level.time) {
 			gi.sound(targ, CHAN_AUX, gi.soundindex("items/protect3.wav"), 1, ATTN_NORM, 0);
@@ -706,8 +676,6 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 
 	// resistance tech
 	take = Tech_ApplyDisruptorShield(targ, take);
-
-	CTF_CheckHurtCarrier(targ, attacker);
 
 	// this option will do damage both to the armor and person. originally for DPU rounds
 	if ((dflags & DAMAGE_DESTROY_ARMOR)) {
@@ -723,7 +691,7 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 			stat_take = targ->health;
 
 		// arena player scoring: 1 point per 100 damage dealt to opponents, capped to 0 health
-		if (GTF(GTF_ARENA) && !OnSameTeam(targ, attacker)) {
+		if (!OnSameTeam(targ, attacker)) {
 			attacker->client->pers.dmg_scorer += stat_take + psave + asave;
 
 			if (attacker->client->pers.dmg_scorer >= 100) {
@@ -789,11 +757,6 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 			if ((targ->svflags & SVF_MONSTER) || (client)) {
 				targ->flags |= FL_ALIVE_KNOCKBACK_ONLY;
 				targ->dead_time = level.time;
-
-				// don't gib in freeze tag unless thawing
-				if (GT(GT_FREEZE) && mod.id != MOD_THAW && targ->health <= targ->gib_health) {
-					targ->health = targ->gib_health + 1;
-				}
 			}
 			targ->monsterinfo.damage_blood += take;
 			targ->monsterinfo.damage_attacker = attacker;

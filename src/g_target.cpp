@@ -486,10 +486,6 @@ For gibs:
 void ED_CallSpawn(gentity_t *ent);
 
 static USE(use_target_spawner) (gentity_t *self, gentity_t *other, gentity_t *activator) -> void {
-	// don't trigger spawn monsters in horde mode
-	if (GT(GT_HORDE) && !Q_strncasecmp("monster_", self->target, 8))
-		return;
-
 	gentity_t *ent;
 
 	ent = G_Spawn();
@@ -2260,12 +2256,6 @@ static USE(target_remove_powerups_use) (gentity_t *ent, gentity_t *other, gentit
 		} else if (itemlist[i].flags & IF_TECH) {
 			activator->client->pers.inventory[i] = 0;
 			Tech_DeadDrop(activator);
-		} else if (itemlist[i].id == IT_FLAG_BLUE) {
-			activator->client->pers.inventory[i] = 0;
-			CTF_ResetTeamFlag(TEAM_BLUE);
-		} else if (itemlist[i].id == IT_FLAG_RED) {
-			activator->client->pers.inventory[i] = 0;
-			CTF_ResetTeamFlag(TEAM_RED);
 		}
 	}
 }
@@ -2516,7 +2506,7 @@ static USE(target_score_use) (gentity_t *self, gentity_t *other, gentity_t *acti
 	if (!activator || !activator->client)
 		return;
 
-	G_AdjustPlayerScore(activator->client, self->count, GT(GT_TDM) || self->spawnflags.has(1_spawnflag), self->count);
+	G_AdjustPlayerScore(activator->client, self->count, self->spawnflags.has(1_spawnflag), self->count);
 }
 
 void SP_target_score(gentity_t *ent) {

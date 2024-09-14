@@ -568,11 +568,6 @@ static void G_CalcBlend(gentity_t *ent) {
 		if (G_PowerUpExpiringRelative(remaining))
 			G_AddBlend(0.4f, 1, 0.4f, 0.04f, ent->client->ps.screen_blend);
 	}
-/*freeze*/
-	else if (GT(GT_FREEZE) && ent->client->eliminated && !ent->client->follow_target && (!ent->client->resp.thawer)) {	// || level.framenum &8))
-		G_AddBlend(0.6f, 0.6f, 0.6f, 0.4f, ent->client->ps.screen_blend);
-	}
-/*freeze*/
 
 	if (ent->client->nuke_time > level.time) {
 		float brightness = (ent->client->nuke_time - level.time).seconds() / 2.0f;
@@ -805,13 +800,6 @@ static void G_SetClientEffects(gentity_t *ent) {
 	if (ent->client->pu_regen_time_blip > level.time) {
 		ent->s.effects |= EF_COLOR_SHELL;
 		ent->s.renderfx |= RF_SHELL_RED;
-	}
-
-	CTF_ClientEffects(ent);
-
-	if (GT(GT_BALL) && ent->client->pers.inventory[IT_BALL] > 0) {
-		ent->s.effects |= EF_COLOR_SHELL;
-		ent->s.renderfx |= RF_SHELL_RED | RF_SHELL_GREEN;
 	}
 
 	if (ent->client->pu_time_quad > level.time)
@@ -1266,7 +1254,7 @@ void ClientEndServerFrame(gentity_t *ent) {
 			ent->health -= quantity;
 			ent->client->vampire_expiretime = level.time + 1_sec;
 			if (ent->health <= 0) {
-				G_AdjustPlayerScore(ent->client, -1, GT(GT_TDM), -1);
+				G_AdjustPlayerScore(ent->client, -1, false, -1);
 
 				player_die(ent, ent, ent, 1, vec3_origin, { MOD_EXPIRE, true });
 				if (!ent->client->eliminated)
@@ -1305,13 +1293,6 @@ void ClientEndServerFrame(gentity_t *ent) {
 			gi.unicast(ent, false);
 			ent->client->menutime = 0_ms;
 		}
-
-/*freeze*/
-		if (GT(GT_FREEZE) && !level.intermission_time && ent->client->eliminated && !ent->client->resp.thawer) {	// || level.framenum & 8) {
-			ent->s.effects |= EF_COLOR_SHELL;
-			ent->s.renderfx |= (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE);
-		}
-/*freeze*/
 
 		return;
 	}

@@ -610,18 +610,10 @@ static void ClientObituary(gentity_t *self, gentity_t *inflictor, gentity_t *att
 			if (level.match_state == matchst_t::MATCH_WARMUP_READYUP) {
 				BroadcastReadyReminderMessage();
 			} else {
-				if (GTF(GTF_ROUNDS) && GTF(GTF_ELIMINATION) && level.round_state == roundst_t::ROUND_IN_PROGRESS) {
+				if (level.round_state == roundst_t::ROUND_IN_PROGRESS) {
 					gi.LocClient_Print(self, PRINT_CENTER, "You were fragged by {}\nYou will respawn next round.", attacker->client->resp.netname);
-				} else if (GT(GT_FREEZE) && level.round_state == roundst_t::ROUND_IN_PROGRESS) {
-					bool last_standing = true;
-					if (self->client->sess.team == TEAM_RED && level.num_living_red > 1 ||
-						self->client->sess.team == TEAM_BLUE && level.num_living_blue > 1)
-						last_standing = false;
-					gi.LocClient_Print(self, PRINT_CENTER, "You were frozen by {}{}",
-						attacker->client->resp.netname,
-						last_standing ? "" : "\nYou will respawn once thawed.");
 				} else {
-					gi.LocClient_Print(self, PRINT_CENTER, "You were {} by {}", GT(GT_FREEZE) ? "frozen" : "fragged", attacker->client->resp.netname);
+					gi.LocClient_Print(self, PRINT_CENTER, "You were fragged by {}", attacker->client->resp.netname);
 				}
 			}
 		}
@@ -632,15 +624,15 @@ static void ClientObituary(gentity_t *self, gentity_t *inflictor, gentity_t *att
 				if (level.match_state == matchst_t::MATCH_WARMUP_READYUP) {
 					BroadcastReadyReminderMessage();
 				} else if (attacker->client->resp.kill_count && !(attacker->client->resp.kill_count % 10)) {
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} is on a {} spree\nwith {} frags!", attacker->client->resp.netname, GT(GT_FREEZE) ? "freezing" : "fragging", attacker->client->resp.kill_count);
+					gi.LocBroadcast_Print(PRINT_CENTER, "{} is on a fragging spree\nwith {} frags!", attacker->client->resp.netname, attacker->client->resp.kill_count);
 				} else if (self->client->resp.kill_count >= 10) {
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} put an end to {}'s\n{} spree!", attacker->client->resp.netname, self->client->resp.netname, GT(GT_FREEZE) ? "freezing" : "fragging");
+					gi.LocBroadcast_Print(PRINT_CENTER, "{} put an end to {}'s\nfragging spree!", attacker->client->resp.netname, self->client->resp.netname);
 				} else if (Teams() || level.match_state != matchst_t::MATCH_IN_PROGRESS) {
 					if (attacker->client->sess.pc.show_fragmessages)
-						gi.LocClient_Print(attacker, PRINT_CENTER, "You {} {}", GT(GT_FREEZE) ? "froze" : "fragged", self->client->resp.netname);
+						gi.LocClient_Print(attacker, PRINT_CENTER, "You fragged {}", self->client->resp.netname);
 				} else {
 					if (attacker->client->sess.pc.show_fragmessages)
-						gi.LocClient_Print(attacker, PRINT_CENTER, "You {} {}\n{} place with {}", GT(GT_FREEZE) ? "froze" : "fragged",
+						gi.LocClient_Print(attacker, PRINT_CENTER, "You fragged {}\n{} place with {}",
 							self->client->resp.netname, G_PlaceString(attacker->client->resp.rank + 1), attacker->client->resp.score);
 				}
 			}
@@ -668,9 +660,6 @@ Toss the weapon, tech, CTF flag and powerups for the killed player
 */
 static void TossClientItems(gentity_t *self) {
 	if (!deathmatch->integer)
-		return;
-
-	if (GTF(GTF_ARENA))
 		return;
 
 	// don't drop anything when combat is disabled
@@ -708,9 +697,6 @@ static void TossClientItems(gentity_t *self) {
 
 	//drop tech
 	Tech_DeadDrop(self);
-
-	// drop CTF flags
-	CTF_DeadDropFlag(self);
 
 	// drop powerup
 	quad = g_dm_no_quad_drop->integer ? false : (self->client->pu_time_quad > (level.time + 1_sec));
@@ -919,10 +905,10 @@ DIE(player_die) (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 	if (attacker && attacker->client && level.match_state == matchst_t::MATCH_IN_PROGRESS) {
 		if (attacker == self || mod.friendly_fire) {
 			if (!mod.no_point_loss)
-				G_AdjustPlayerScore(attacker->client, -1, GT(GT_TDM), -1);
+				G_AdjustPlayerScore(attacker->client, -1, false, -1);
 			attacker->client->resp.kill_count = 0;
 		} else {
-			G_AdjustPlayerScore(attacker->client, 1, GT(GT_TDM), 1);
+			G_AdjustPlayerScore(attacker->client, 1, false, 1);
 			if (attacker->health > 0)
 				attacker->client->resp.kill_count++;
 
@@ -930,7 +916,7 @@ DIE(player_die) (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		}
 	} else {
 		if (!mod.no_point_loss)
-			G_AdjustPlayerScore(self->client, -1, GT(GT_TDM), -1);
+			G_AdjustPlayerScore(self->client, -1, false, -1);
 	}
 	MS_Adjust(self->client, MSTAT_DEATHS, 1);
 
@@ -948,7 +934,6 @@ DIE(player_die) (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		self->client->ps.pmove.pm_type = PM_DEAD;
 		ClientObituary(self, inflictor, attacker, mod);
 
-		CTF_ScoreBonuses(self, inflictor, attacker);
 		TossClientItems(self);
 		Weapon_Grapple_DoReset(self->client);
 
@@ -997,13 +982,8 @@ DIE(player_die) (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		damage = 400;
 	}
 
-	if (GT(GT_FREEZE) && !level.intermission_time && self->client->eliminated && !self->client->resp.thawer) {
-		self->s.effects |= EF_COLOR_SHELL;
-		self->s.renderfx |= (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE);
-	} else {
-		self->s.effects = EF_NONE;
-		self->s.renderfx = RF_NONE;
-	}
+	self->s.effects = EF_NONE;
+	self->s.renderfx = RF_NONE;
 
 	// make sure no trackers are still hurting us.
 	if (self->client->tracker_pain_time) {
@@ -1041,30 +1021,25 @@ DIE(player_die) (gentity_t *self, gentity_t *inflictor, gentity_t *attacker, int
 		self->takedamage = false;
 	} else { // normal death
 		if (!self->deadflag) {
-			if (GT(GT_FREEZE)) {
-				self->s.frame = FRAME_crstnd01 - 1;
-				self->client->anim_end = self->s.frame;
+			// start a death animation
+			self->client->anim_priority = ANIM_DEATH;
+			if (self->client->ps.pmove.pm_flags & PMF_DUCKED) {
+				self->s.frame = FRAME_crdeath1 - 1;
+				self->client->anim_end = FRAME_crdeath5;
 			} else {
-				// start a death animation
-				self->client->anim_priority = ANIM_DEATH;
-				if (self->client->ps.pmove.pm_flags & PMF_DUCKED) {
-					self->s.frame = FRAME_crdeath1 - 1;
-					self->client->anim_end = FRAME_crdeath5;
-				} else {
-					switch (irandom(3)) {
-					case 0:
-						self->s.frame = FRAME_death101 - 1;
-						self->client->anim_end = FRAME_death106;
-						break;
-					case 1:
-						self->s.frame = FRAME_death201 - 1;
-						self->client->anim_end = FRAME_death206;
-						break;
-					case 2:
-						self->s.frame = FRAME_death301 - 1;
-						self->client->anim_end = FRAME_death308;
-						break;
-					}
+				switch (irandom(3)) {
+				case 0:
+					self->s.frame = FRAME_death101 - 1;
+					self->client->anim_end = FRAME_death106;
+					break;
+				case 1:
+					self->s.frame = FRAME_death201 - 1;
+					self->client->anim_end = FRAME_death206;
+					break;
+				case 2:
+					self->s.frame = FRAME_death301 - 1;
+					self->client->anim_end = FRAME_death308;
+					break;
 				}
 			}
 			static constexpr const char *death_sounds[] = {
@@ -1184,13 +1159,8 @@ void InitClientPersistant(gentity_t *ent, gclient_t *client) {
 		int health, armor;
 		gitem_armor_t armor_type = jacketarmor_info;
 
-		if (GTF(GTF_ARENA)) {
-			health = clamp(g_arena_start_health->integer, 1, 999);
-			armor = clamp(g_arena_start_armor->integer, 0, 999);
-		} else {
-			health = clamp(g_starting_health->integer, 1, 999);
-			armor = clamp(g_starting_armor->integer, 0, 999);
-		}
+		health = clamp(g_starting_health->integer, 1, 999);
+		armor = clamp(g_starting_armor->integer, 0, 999);
 
 		if (armor > jacketarmor_info.max_count)
 			if (armor > combatarmor_info.max_count)
@@ -1200,7 +1170,7 @@ void InitClientPersistant(gentity_t *ent, gclient_t *client) {
 		client->pers.health = client->pers.max_health = health;
 
 		int bonus = RS(RS_Q3A) ? 25 : g_starting_health_bonus->integer;
-		if (!(GTF(GTF_ARENA)) && bonus > 0) {
+		if (bonus > 0) {
 			client->pers.health += bonus;
 			if (!(RS(RS_Q3A))) {
 				client->pers.health_bonus = bonus;
@@ -1231,52 +1201,12 @@ void InitClientPersistant(gentity_t *ent, gclient_t *client) {
 			}
 		}
 
-		if (GT(GT_BALL)) {
-			client->pers.inventory[IT_WEAPON_CHAINFIST] = 1;
-		} else if (!taken_loadout) {
+		if (!taken_loadout) {
 			if (g_instagib->integer) {
 				client->pers.inventory[IT_WEAPON_RAILGUN] = 1;
 				client->pers.inventory[IT_AMMO_SLUGS] = AMMO_INFINITE;
 			} else if (g_nadefest->integer) {
 				client->pers.inventory[IT_AMMO_GRENADES] = AMMO_INFINITE;
-			} else if (GTF(GTF_ARENA)) {
-				client->pers.max_ammo.fill(50);
-				client->pers.max_ammo[AMMO_SHELLS] = 50;
-				client->pers.max_ammo[AMMO_BULLETS] = 300;
-				client->pers.max_ammo[AMMO_GRENADES] = 50;
-				client->pers.max_ammo[AMMO_ROCKETS] = 50;
-				client->pers.max_ammo[AMMO_CELLS] = 200;
-				client->pers.max_ammo[AMMO_SLUGS] = 25;
-				/*
-				client->pers.max_ammo[AMMO_TRAP] = 5;
-				client->pers.max_ammo[AMMO_FLECHETTES] = 200;
-				client->pers.max_ammo[AMMO_DISRUPTOR] = 12;
-				client->pers.max_ammo[AMMO_TESLA] = 5;
-				*/
-				client->pers.inventory[IT_AMMO_SHELLS] = 50;
-				if (!(RS(RS_Q1))) {
-					client->pers.inventory[IT_AMMO_BULLETS] = 200;
-					client->pers.inventory[IT_AMMO_GRENADES] = 50;
-				}
-				client->pers.inventory[IT_AMMO_ROCKETS] = 50;
-				client->pers.inventory[IT_AMMO_CELLS] = 200;
-				if (!(RS(RS_Q1)))
-					client->pers.inventory[IT_AMMO_SLUGS] = 50;
-
-				client->pers.inventory[IT_WEAPON_BLASTER] = 1;
-				client->pers.inventory[IT_WEAPON_SHOTGUN] = 1;
-				if (!(RS(RS_Q3A)))
-					client->pers.inventory[IT_WEAPON_SSHOTGUN] = 1;
-				if (!(RS(RS_Q1))) {
-					client->pers.inventory[IT_WEAPON_MACHINEGUN] = 1;
-					client->pers.inventory[IT_WEAPON_CHAINGUN] = 1;
-				}
-				client->pers.inventory[IT_WEAPON_GLAUNCHER] = 1;
-				client->pers.inventory[IT_WEAPON_RLAUNCHER] = 1;
-				client->pers.inventory[IT_WEAPON_HYPERBLASTER] = 1;
-				client->pers.inventory[IT_WEAPON_PLASMABEAM] = 1;
-				if (!(RS(RS_Q1)))
-					client->pers.inventory[IT_WEAPON_RAILGUN] = 1;
 			} else {
 				if (RS(RS_Q3A)) {
 					client->pers.max_ammo.fill(200);
@@ -1291,7 +1221,7 @@ void InitClientPersistant(gentity_t *ent, gclient_t *client) {
 
 					client->pers.inventory[IT_WEAPON_CHAINFIST] = 1;
 					client->pers.inventory[IT_WEAPON_MACHINEGUN] = 1;
-					client->pers.inventory[IT_AMMO_BULLETS] = (GT(GT_TDM)) ? 50 : 100;
+					client->pers.inventory[IT_AMMO_BULLETS] = 100;
 				} else if (RS(RS_Q1)) {
 					client->pers.max_ammo.fill(200);
 					client->pers.max_ammo[AMMO_BULLETS] = 200;
@@ -1352,8 +1282,7 @@ void InitClientPersistant(gentity_t *ent, gclient_t *client) {
 				client->pers.inventory[IT_COMPASS] = 1;
 
 			bool give_grapple = (!strcmp(g_allow_grapple->string, "auto")) ?
-				(GTF(GTF_CTF) ? !level.no_grapple : 0) :
-				(g_allow_grapple->integer && !g_grapple_offhand->integer);
+				0 : (g_allow_grapple->integer && !g_grapple_offhand->integer);
 			if (give_grapple)
 				client->pers.inventory[IT_WEAPON_GRAPPLE] = 1;
 		}
@@ -2201,7 +2130,6 @@ void CopyToBodyQue(gentity_t *ent) {
 		return;
 
 	gentity_t *body;
-	bool frozen = !!(GT(GT_FREEZE) && !level.intermission_time && ent->client->eliminated && !ent->client->resp.thawer);
 
 	// grab a body que and cycle to the next one
 	body = &g_entities[game.maxclients + level.body_que + 1];
@@ -2216,13 +2144,8 @@ void CopyToBodyQue(gentity_t *ent) {
 	body->s.number = body - g_entities;
 	body->s.skinnum = ent->s.skinnum & 0xFF; // only copy the client #
 
-	if (frozen) {
-		body->s.effects |= EF_COLOR_SHELL;
-		body->s.renderfx |= (RF_SHELL_RED | RF_SHELL_GREEN | RF_SHELL_BLUE);
-	} else {
-		body->s.effects = EF_NONE;
-		body->s.renderfx = RF_NONE;
-	}
+	body->s.effects = EF_NONE;
+	body->s.renderfx = RF_NONE;
 
 	body->svflags = ent->svflags;
 	body->absmin = ent->absmin;
@@ -2246,7 +2169,7 @@ void CopyToBodyQue(gentity_t *ent) {
 	} else
 		body->mins = body->maxs = {};
 
-	if (g_corpse_sink_time->value > 0 && notGT(GT_FREEZE)) {
+	if (g_corpse_sink_time->value > 0) {
 		body->timestamp = level.time + gtime_t::from_sec(g_corpse_sink_time->value + 1.5);
 		body->nextthink = level.time + gtime_t::from_sec(g_corpse_sink_time->value);
 		body->think = BodySink;
@@ -2317,11 +2240,6 @@ void ClientRespawn(gentity_t *ent) {
 		if (ClientIsPlaying(ent->client))
 			CopyToBodyQue(ent);
 		ent->svflags &= ~SVF_NOCLIENT;
-
-		if (GT(GT_RR) && level.match_state == matchst_t::MATCH_IN_PROGRESS) {
-			ent->client->sess.team = Teams_OtherTeam(ent->client->sess.team);
-			G_AssignPlayerSkin(ent, ent->client->pers.skin);
-		}
 
 		ClientSpawn(ent);
 		G_PostRespawn(ent);
@@ -2608,7 +2526,7 @@ void ClientSpawn(gentity_t *ent) {
 	client_respawn_t		resp;
 	client_session_t		sess;
 
-	if (GTF(GTF_ROUNDS) && GTF(GTF_ELIMINATION) && level.match_state == matchst_t::MATCH_IN_PROGRESS && notGT(GT_HORDE))
+	if (level.match_state == matchst_t::MATCH_IN_PROGRESS)
 		if (level.round_state == roundst_t::ROUND_IN_PROGRESS || level.round_state == roundst_t::ROUND_ENDED)
 			ClientSetEliminated(ent);
 	bool eliminated = ent->client->eliminated;
@@ -2881,7 +2799,7 @@ void ClientSpawn(gentity_t *ent) {
 	}
 	
 	// force the current weapon up
-	if (GTF(GTF_ARENA) && client->pers.inventory[IT_WEAPON_RLAUNCHER])
+	if (client->pers.inventory[IT_WEAPON_RLAUNCHER])
 		client->newweapon = &itemlist[IT_WEAPON_RLAUNCHER];
 	else
 		client->newweapon = client->pers.weapon;
@@ -3496,7 +3414,6 @@ bool ClientConnect(gentity_t *ent, char *userinfo, const char *social_id, bool i
 		// clear the respawning variables
 
 		if (!ent->client->sess.initialised && !ent->client->sess.team) {
-			//gi.Com_PrintFmt_("ClientConnect: {} q={}\n", ent->client->resp.netname, ent->client->sess.duel_queued);
 			// force team join
 			ent->client->sess.team = deathmatch->integer ? TEAM_NONE : TEAM_FREE;
 			ent->client->sess.pc.show_id = true;
@@ -3645,9 +3562,6 @@ static trace_t G_PM_Clip(const vec3_t &start, const vec3_t *mins, const vec3_t *
 }
 
 bool G_ShouldPlayersCollide(bool weaponry) {
-	if (GT(GT_RACE))
-		return false;
-
 	if (g_disable_player_collision->integer)
 		return false; // only for debugging.
 
@@ -3735,7 +3649,7 @@ static void P_FallingDamage(gentity_t *ent, const pmove_t &pm) {
 			ent->s.event = EV_FALL_FAR;
 		else
 			ent->s.event = EV_FALL_MEDIUM;
-		if (!deathmatch->integer || !(g_dm_no_fall_damage->integer || GTF(GTF_ARENA))) {
+		if (!deathmatch->integer || !g_dm_no_fall_damage->integer) {
 			ent->pain_debounce_time = level.time + FRAME_TIME_S; // no normal pain sound
 			if (RS(RS_Q3A))
 				damage = ent->s.event == EV_FALL_FAR ? 10 : 5;

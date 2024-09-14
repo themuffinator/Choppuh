@@ -980,10 +980,7 @@ static void Tech_Spawn(gitem_t *item, gentity_t *spot) {
 }
 
 static bool AllowTechs() {
-	if (!strcmp(g_allow_techs->string, "auto"))
-		return !!(GT(GT_CTF) && !g_instagib->integer && !g_nadefest->integer && notGT(GT_BALL));
-	else
-		return !!(g_allow_techs->integer && ItemSpawnsEnabled());
+	return !!(g_allow_techs->integer && ItemSpawnsEnabled());
 }
 
 static THINK(Tech_SpawnAll) (gentity_t *ent) -> void {
@@ -1104,7 +1101,7 @@ void Tech_ApplyAutoDoc(gentity_t *ent) {
 	int			index;
 	float		volume = 1.0;
 	bool		mod = g_instagib->integer || g_nadefest->integer;
-	bool		no_health = mod || GTF(GTF_ARENA) || g_no_health->integer;
+	bool		no_health = mod || g_no_health->integer;
 	int			max = g_vampiric_damage->integer ? ceil(g_vampiric_health_max->integer/2) : mod ? 100 : 150;
 
 	cl = ent->client;
@@ -1249,7 +1246,7 @@ static inline item_flags_t GetSubstituteItemFlags(item_id_t id) {
 
 static inline item_id_t FindSubstituteItem(gentity_t *ent) {
 	// never replace flags
-	if (ent->item->id == IT_FLAG_RED || ent->item->id == IT_FLAG_BLUE || ent->item->id == IT_TAG_TOKEN)
+	if (ent->item->id == IT_TAG_TOKEN)
 		return IT_NULL;
 
 	// never replace meaty goodness
@@ -1400,32 +1397,28 @@ THINK(RespawnItem) (gentity_t *ent) -> void {
 
 		// in ctf, when we are weapons stay, only the master of a team of weapons
 		// is spawned
-		if (GT(GT_CTF) && g_dm_weapons_stay->integer && master->item && (master->item->flags & IF_WEAPON))
-			ent = master;
-		else {
-			int current_index = 0;
+		int current_index = 0;
 
-			ent->svflags |= SVF_NOCLIENT;
-			ent->solid = SOLID_NOT;
-			gi.linkentity(ent);
+		ent->svflags |= SVF_NOCLIENT;
+		ent->solid = SOLID_NOT;
+		gi.linkentity(ent);
 
-			for (count = 0, ent = master; ent; ent = ent->chain, count++) {
-				// reset spawn timers on all teamed entities
-				ent->nextthink = 0_sec;
-				if (ent == current)
-					current_index = count;
-			}
+		for (count = 0, ent = master; ent; ent = ent->chain, count++) {
+			// reset spawn timers on all teamed entities
+			ent->nextthink = 0_sec;
+			if (ent == current)
+				current_index = count;
+		}
 			
-			if (RS(RS_MM)) {
-				choice = (current_index + 1) % count;
-				//gi.Com_PrintFmt("ci={} co={} ch={}\n", current_index, count, choice);
-				for (count = 0, ent = master; count < choice; ent = ent->chain, count++)
-					;
-			} else {
-				choice = irandom(count);
-				for (count = 0, ent = master; count < choice; ent = ent->chain, count++)
-					;
-			}
+		if (RS(RS_MM)) {
+			choice = (current_index + 1) % count;
+			//gi.Com_PrintFmt("ci={} co={} ch={}\n", current_index, count, choice);
+			for (count = 0, ent = master; count < choice; ent = ent->chain, count++)
+				;
+		} else {
+			choice = irandom(count);
+			for (count = 0, ent = master; count < choice; ent = ent->chain, count++)
+				;
 		}
 	}
 
@@ -1494,10 +1487,6 @@ void SetRespawn(gentity_t *ent, gtime_t delay, bool hide_self) {
 	delay *= g_dm_item_respawn_rate->value;
 
 	ent->nextthink = level.time + delay + t;
-
-	// 4x longer delay in horde
-	if (GT(GT_HORDE))
-		ent->nextthink += delay*3;
 
 	ent->think = RespawnItem;
 }
@@ -2133,7 +2122,7 @@ void Powerup_ApplyRegeneration(gentity_t *ent) {
 	gclient_t	*cl;
 	float		volume = 1.0;
 	bool		mod = g_instagib->integer || g_nadefest->integer;
-	bool		no_health = mod || GTF(GTF_ARENA) || g_no_health->integer;
+	bool		no_health = mod || g_no_health->integer;
 
 	cl = ent->client;
 	if (!cl)
@@ -2420,9 +2409,6 @@ static bool Pickup_Health(gentity_t *ent, gentity_t *other) {
 	}
 
 	other->health += count;
-
-	if (GTF(GTF_CTF) && other->health > max && count > 25)
-		other->health = max;
 
 	if (!(health_flags & HEALTH_IGNORE_MAX))
 		if (other->health > other->max_health)
@@ -3059,11 +3045,6 @@ bool CheckItemEnabled(gitem_t *item) {
 	cv = gi.cvar(G_Fmt("disable_{}", item->classname).data(), "0", CVAR_NOFLAGS);
 	if (cv->integer) return false;
 
-	// Don't spawn the flags unless enabled
-	if (!(GTF(GTF_CTF)) && (item->id == IT_FLAG_RED || item->id == IT_FLAG_BLUE)) {
-		return false;
-	}
-
 	if (!ItemSpawnsEnabled()) {
 		if (item->flags & (IF_ARMOR | IF_POWER_ARMOR | IF_TIMED | IF_POWERUP | IF_SPHERE | IF_HEALTH | IF_AMMO | IF_WEAPON))
 			return false;
@@ -3092,9 +3073,6 @@ bool CheckItemEnabled(gitem_t *item) {
 	}
 
 	if (subtract)
-		return false;
-
-	if (GT(GT_BALL) && item->id != IT_BALL)
 		return false;
 
 	if (!add) {
@@ -3282,10 +3260,6 @@ bool SpawnItem(gentity_t *ent, gitem_t *item) {
 	
 	if (ent->spawnflags.has(SPAWNFLAG_ITEM_TRIGGER_SPAWN))
 		SetTriggeredSpawn(ent);
-
-	// flags are server animated and have special handling
-	if (item->id == IT_FLAG_RED || item->id == IT_FLAG_BLUE)
-		ent->think = CTF_FlagSetup;
 
 	if (item->flags & IF_WEAPON && item->id >= FIRST_WEAPON && item->id <= LAST_WEAPON)
 		level.weapon_count[item->id - FIRST_WEAPON]++;
@@ -5539,66 +5513,6 @@ model="models/items/mega_h/tris.md2"
 		/* vwep_model */ nullptr,
 		/* armor_info */ nullptr,
 		/* tag */ HEALTH_IGNORE_MAX | HEALTH_TIMED
-	},
-
-/*QUAKED item_flag_team_red (1 0.2 0) (-16 -16 -24) (16 16 32) TRIGGER_SPAWN x x SUSPENDED x x x x NOT_EASY NOT_MEDIUM NOT_HARD NOT_DM NOT_COOP
-Red Flag for CTF.
--------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
-model="players/male/flag1.md2"
-*/
-	{
-		/* id */ IT_FLAG_RED,
-		/* classname */ ITEM_CTF_FLAG_RED,
-		/* pickup */ CTF_PickupFlag,
-		/* use */ nullptr,
-		/* drop */ CTF_DropFlag, //Should this be null if we don't want players to drop it manually?
-		/* weaponthink */ nullptr,
-		/* pickup_sound */ "ctf/flagtk.wav",
-		/* world_model */ "players/male/flag1.md2",
-		/* world_model_flags */ EF_FLAG_RED,
-		/* view_model */ nullptr,
-		/* icon */ "i_ctf1",
-		/* use_name */  "Red Flag",
-		/* pickup_name */  "$item_red_flag",
-		/* pickup_name_definite */ "$item_red_flag_def",
-		/* quantity */ 0,
-		/* ammo */ IT_NULL,
-		/* chain */ IT_NULL,
-		/* flags */ IF_NONE,
-		/* vwep_model */ nullptr,
-		/* armor_info */ nullptr,
-		/* tag */ 0,
-		/* precaches */ "ctf/flagcap.wav"
-	},
-
-/*QUAKED item_flag_team_blue (1 0.2 0) (-16 -16 -24) (16 16 32) TRIGGER_SPAWN x x SUSPENDED x x x x NOT_EASY NOT_MEDIUM NOT_HARD NOT_DM NOT_COOP
-Blue Flag for CTF.
--------- MODEL FOR RADIANT ONLY - DO NOT SET THIS AS A KEY --------
-model="players/male/flag2.md2"
-*/
-	{
-		/* id */ IT_FLAG_BLUE,
-		/* classname */ ITEM_CTF_FLAG_BLUE,
-		/* pickup */ CTF_PickupFlag,
-		/* use */ nullptr,
-		/* drop */ CTF_DropFlag,
-		/* weaponthink */ nullptr,
-		/* pickup_sound */ "ctf/flagtk.wav",
-		/* world_model */ "players/male/flag2.md2",
-		/* world_model_flags */ EF_FLAG_BLUE,
-		/* view_model */ nullptr,
-		/* icon */ "i_ctf2",
-		/* use_name */  "Blue Flag",
-		/* pickup_name */  "$item_blue_flag",
-		/* pickup_name_definite */ "$item_blue_flag_def",
-		/* quantity */ 0,
-		/* ammo */ IT_NULL,
-		/* chain */ IT_NULL,
-		/* flags */ IF_NONE,
-		/* vwep_model */ nullptr,
-		/* armor_info */ nullptr,
-		/* tag */ 0,
-		/* precaches */ "ctf/flagcap.wav"
 	},
 
 /* Disruptor Shield Tech */

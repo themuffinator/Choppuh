@@ -89,85 +89,6 @@ enum team_t {
 	TEAM_NUM_TEAMS
 };
 
-enum gametype_t {
-	GT_NONE,
-	GT_FFA,
-	GT_DUEL,
-	GT_TDM,
-	GT_CTF,
-	GT_CA,
-	GT_FREEZE,
-	GT_STRIKE,
-	GT_RR,
-	GT_LMS,
-	GT_HORDE,
-	GT_RACE,
-	GT_BALL,
-	GT_NUM_GAMETYPES
-};
-constexpr gametype_t GT_FIRST = GT_FFA;
-constexpr gametype_t GT_LAST = GT_BALL;
-
-enum gtf_t {
-	GTF_TEAMS	= 0x01,
-	GTF_CTF		= 0x02,
-	GTF_ARENA	= 0x04,
-	GTF_ROUNDS	= 0x08,
-	GTF_ELIMINATION	= 0x10,
-};
-
-extern int _gt[GT_NUM_GAMETYPES];
-
-#define GTF( x ) _gt[g_gametype->integer] & (x)
-#define GT( x ) g_gametype->integer == (int)(x)
-#define notGT( x ) g_gametype->integer != (int)(x)
-
-constexpr const char *gt_short_name[GT_NUM_GAMETYPES] = {
-	"cmp",
-	"ffa",
-	"duel",
-	"tdm",
-	"ctf",
-	"ca",
-	"ft",
-	"strike",
-	"rr",
-	"lms",
-	"horde",
-	"race",
-	"ball"
-};
-constexpr const char *gt_short_name_upper[GT_NUM_GAMETYPES] = {
-	"CMP",
-	"FFA",
-	"DUEL",
-	"TDM",
-	"CTF",
-	"CA",
-	"FT",
-	"STRIKE",
-	"REDROVER",
-	"LMS",
-	"HORDE",
-	"RACE",
-	"BALL",
-};
-constexpr const char *gt_long_name[GT_NUM_GAMETYPES] = {
-	"Campaign",
-	"Deathmatch",
-	"Duel",
-	"Team Deathmatch",
-	"Capture the Flag",
-	"Clan Arena",
-	"Freeze Tag",
-	"CaptureStrike",
-	"Red Rover",
-	"Last Man Standing",
-	"Horde Mode",
-	"Race",
-	"ProBall"
-};
-
 enum monflags_t {
 	MF_NONE		= 0x00,
 	MF_GROUND	= 0x01,
@@ -239,7 +160,6 @@ struct vcmds_t {
 extern vcmds_t vote_cmds[];
 
 extern int ii_highlight;
-extern int ii_duel_header;
 extern int ii_teams_red_default;
 extern int ii_teams_blue_default;
 extern int ii_ctf_red_dropped;
@@ -1090,9 +1010,6 @@ enum item_id_t : int32_t {
 	IT_HEALTH_LARGE,
 	IT_HEALTH_MEGA,
 
-	IT_FLAG_RED,
-	IT_FLAG_BLUE,
-
 	IT_TECH_DISRUPTOR_SHIELD,
 	IT_TECH_POWER_AMP,
 	IT_TECH_TIME_ACCEL,
@@ -1125,9 +1042,6 @@ constexpr int FIRST_WEAPON = IT_WEAPON_GRAPPLE;
 constexpr int LAST_WEAPON = IT_WEAPON_DISRUPTOR;
 
 constexpr item_id_t tech_ids[] = { IT_TECH_DISRUPTOR_SHIELD, IT_TECH_POWER_AMP, IT_TECH_TIME_ACCEL, IT_TECH_AUTODOC };
-
-constexpr const char *ITEM_CTF_FLAG_RED = "item_flag_team_red";
-constexpr const char *ITEM_CTF_FLAG_BLUE = "item_flag_team_blue";
 
 struct gitem_t {
 	item_id_t		id;		   // matches item list index
@@ -1310,7 +1224,6 @@ struct game_locals_t {
 
 	std::vector<std::string> mapqueue;
 
-	gametype_t	gametype;
 	std::string motd;
 	int motd_modcount = 0;
 
@@ -1488,7 +1401,6 @@ struct level_locals_t {
 	gtime_t		next_match_report;
 
 	char		gamemod_name[64];
-	char		gametype_name[64];
 
 	//voting
 	gclient_t	*vote_client;
@@ -1561,10 +1473,6 @@ struct level_locals_t {
 	bool		strike_flag_touch;
 	bool		strike_turn_red;
 	bool		strike_turn_blue;
-
-	gtime_t		horde_monster_spawn_time;
-	int8_t		horde_num_monsters_to_spawn;
-	bool		horde_all_spawned;
 
 	char		author[MAX_QPATH];
 	char		author2[MAX_QPATH];
@@ -2177,7 +2085,6 @@ extern cvar_t *hostname;
 extern cvar_t *deathmatch;
 extern cvar_t *ctf;
 extern cvar_t *teamplay;
-extern cvar_t *g_gametype;
 
 extern cvar_t *coop;
 
@@ -2320,7 +2227,6 @@ extern cvar_t *g_no_nukes;
 extern cvar_t *g_no_powerups;
 extern cvar_t *g_no_spheres;
 extern cvar_t *g_owner_auto_join;
-extern cvar_t *g_gametype_cfg;
 extern cvar_t *g_quadhog;
 extern cvar_t *g_quick_weapon_switch;
 extern cvar_t *g_rollangle;
@@ -2393,7 +2299,6 @@ void VoteCommandStore(gentity_t *ent);
 vcmds_t *FindVoteCmdByName(const char *name);
 void Vote_Pass_Map();
 void Vote_Pass_RestartMatch();
-void Vote_Pass_Gametype();
 void Vote_Pass_NextMap();
 void Vote_Pass_ShuffleTeams();
 void Vote_Pass_Cointoss();
@@ -2493,7 +2398,6 @@ const char *Teams_OtherTeamName(team_t team);
 team_t Teams_OtherTeam(team_t team);
 bool Teams();
 void G_AdjustPlayerScore(gclient_t *cl, int32_t offset, bool adjust_team, int32_t team_offset);
-void Horde_AdjustPlayerScore(gclient_t *cl, int32_t offset);
 void G_SetPlayerScore(gclient_t *cl, int32_t value);
 void G_AdjustTeamScore(team_t team, int32_t offset);
 void G_SetTeamScore(team_t team, int32_t value);
@@ -2508,7 +2412,6 @@ void BroadcastTeamMessage(team_t team, print_type_t level, const char *msg);
 team_t StringToTeamNum(const char *in);
 bool IsCombatDisabled();
 bool IsPickupsDisabled();
-gametype_t GT_IndexFromString(const char *in);
 bool IsScoringDisabled();
 void BroadcastReadyReminderMessage();
 void TeleportPlayerToRandomSpawnPoint(gentity_t *ent, bool fx);
@@ -2523,8 +2426,6 @@ void MS_Adjust(gclient_t *cl, mstats_t index, int count);
 //
 void  ED_CallSpawn(gentity_t *ent);
 char *ED_NewString(char *string);
-void GT_SetLongName(void);
-void GT_PrecacheAssets();
 
 //
 // g_target.cpp
@@ -2859,20 +2760,6 @@ select_spawn_result_t SelectDeathmatchSpawnPoint(gentity_t *ent, vec3_t avoid_po
 void G_PostRespawn(gentity_t *self);
 
 //
-// g_ctf.cpp
-//
-bool CTF_PickupFlag(gentity_t *ent, gentity_t *other);
-void CTF_DropFlag(gentity_t *ent, gitem_t *item);
-void CTF_ClientEffects(gentity_t *player);
-void CTF_DeadDropFlag(gentity_t *self);
-void CTF_FlagSetup(gentity_t *ent);
-void CTF_ResetTeamFlag(team_t team);
-void CTF_ResetFlags();
-void CTF_ScoreBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker);
-void CTF_CheckHurtCarrier(gentity_t *targ, gentity_t *attacker);
-
-
-//
 // g_menu.cpp
 //
 void G_Menu_Join_Open(gentity_t *ent);
@@ -2999,8 +2886,6 @@ int MQ_Count();
 bool MQ_Add(gentity_t *ent, const char *mapname);
 gentity_t *CreateTargetChangeLevel(const char *map);
 bool InAMatch();
-void ChangeGametype(gametype_t gt);
-void GT_Changes();
 void SpawnEntities(const char *mapname, const char *entities, const char *spawnpoint);
 void G_LoadMOTD();
 
@@ -3268,10 +3153,6 @@ struct client_session_t {
 	bool			inactive;
 	gtime_t			inactivity_time;
 	bool			inactivity_warning;
-
-	// duel stats
-	bool			duel_queued;
-	int				wins, losses;
 };
 
 // client data that stays across deathmatch respawns
@@ -3779,8 +3660,6 @@ struct gentity_t {
 	// in g_save.cpp too!
 
 //muff
-	const char *gametype;
-	const char *not_gametype;
 	const char *notteam;
 	const char *notfree;
 	const char *notq2;

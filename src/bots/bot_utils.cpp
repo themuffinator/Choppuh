@@ -248,12 +248,6 @@ static void Item_UpdateState(gentity_t *item) {
 		}
 	}
 
-	const item_id_t itemID = item->item->id;
-	if (itemID == IT_FLAG_RED || itemID == IT_FLAG_BLUE) {
-		item->sv.ent_flags |= SVFL_IS_OBJECTIVE;
-		// TODO: figure out if the objective is dropped/carried/home...
-	}
-
 	// always need to update these for items, since random item spawning
 	// could change them at any time...
 	item->sv.classname = item->classname;

@@ -286,8 +286,6 @@ static void Cmd_Give_f(gentity_t *ent) {
 				continue;
 			if (it->flags & (IF_ARMOR | IF_POWER_ARMOR | IF_WEAPON | IF_AMMO | IF_NOT_GIVEABLE | IF_TECH))
 				continue;
-			else if (it->pickup == CTF_PickupFlag)
-				continue;
 			else if ((it->flags & IF_HEALTH) && !it->use)
 				continue;
 			ent->client->pers.inventory[i] = (it->flags & IF_KEY) ? 8 : 1;
@@ -718,10 +716,7 @@ static void Cmd_Drop_f(gentity_t *ent) {
 	}
 
 	const char *t = nullptr;
-	if (it->id == IT_FLAG_RED || it->id == IT_FLAG_BLUE) {
-		if (!(g_drop_cmds->integer & 1))
-			t = "Flag";
-	} else if (it->flags & IF_POWERUP) {
+	if (it->flags & IF_POWERUP) {
 		if (!(g_drop_cmds->integer & 2))
 			t = "Powerup";
 	} else if (it->flags & IF_WEAPON || it->flags & IF_AMMO) {
@@ -1028,32 +1023,6 @@ static void Cmd_InvDrop_f(gentity_t *ent) {
 
 /*
 =================
-Cmd_Forfeit_f
-=================
-*/
-static void Cmd_Forfeit_f(gentity_t *ent) {
-	if (notGT(GT_DUEL)) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "Forfeit is only available in a duel.\n");
-		return;
-	}
-	if (level.match_state < matchst_t::MATCH_IN_PROGRESS) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "Forfeit is not available during warmup.\n");
-		return;
-	}
-	if (ent->client != &game.clients[level.sorted_clients[1]]) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "Forfeit is only available to the losing player.\n");
-		return;
-	}
-	if (!g_allow_forfeit->integer) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "Forfeits are not enabled on this server.\n");
-		return;
-	}
-
-	QueueIntermission(G_Fmt("{} forfeits the match.", ent->client->resp.netname).data(), true, false);
-}
-
-/*
-=================
 Cmd_Kill_f
 =================
 */
@@ -1077,7 +1046,7 @@ static void Cmd_Kill_f(gentity_t *ent) {
 	}
 
 	// [Paril-KEX] don't allow kill to take points away in TDM
-	player_die(ent, ent, ent, 100000, vec3_origin, { MOD_SUICIDE, GT(GT_TDM) });
+	player_die(ent, ent, ent, 100000, vec3_origin, { MOD_SUICIDE, false });
 }
 
 /*
@@ -1223,7 +1192,7 @@ static void PlayersList(gentity_t *ent, bool ranked) {
 
 			fmt::format_to(std::back_inserter(small), FMT_STRING("{:9} {:32} {:32} {:02}:{:02} {:4} {:5} {}{}\n"), index[i], cl->pers.social_id, value, (level.time - cl->resp.entertime).milliseconds() / 60000,
 				((level.time - cl->resp.entertime).milliseconds() % 60000) / 1000, cl->ping,
-				cl->resp.score, cl->sess.duel_queued ? "QUEUE" : Teams_TeamName(cl->sess.team), cl->sess.admin ? " (admin)" : cl->sess.inactive ? " (inactive)" : "");
+				cl->resp.score, Teams_TeamName(cl->sess.team), cl->sess.admin ? " (admin)" : cl->sess.inactive ? " (inactive)" : "");
 
 			if (small.length() + large.length() > MAX_IDEAL_PACKET_SIZE - 50) { // can't print all of them in one packet
 				large += "...\n";
@@ -1637,31 +1606,28 @@ team_t PickTeam(int ignore_client_num) {
 		return TEAM_BLUE;
 
 	// equal team scores, so join team with lowest total individual scores
-	// skip in tdm as it's redundant
-	if (notGT(GT_TDM)) {
-		int iscore_red = 0, iscore_blue = 0;
+	int iscore_red = 0, iscore_blue = 0;
 
-		for (size_t i = 0; i < game.maxclients; i++) {
-			if (i == ignore_client_num)
-				continue;
-			if (!game.clients[i].pers.connected)
-				continue;
+	for (size_t i = 0; i < game.maxclients; i++) {
+		if (i == ignore_client_num)
+			continue;
+		if (!game.clients[i].pers.connected)
+			continue;
 
-			if (game.clients[i].sess.team == TEAM_RED) {
-				iscore_red += game.clients[i].resp.score;
-				continue;
-			}
-			if (game.clients[i].sess.team == TEAM_BLUE) {
-				iscore_blue += game.clients[i].resp.score;
-				continue;
-			}
+		if (game.clients[i].sess.team == TEAM_RED) {
+			iscore_red += game.clients[i].resp.score;
+			continue;
 		}
-
-		if (iscore_blue > iscore_red)
-			return TEAM_RED;
-		if (iscore_red > iscore_blue)
-			return TEAM_BLUE;
+		if (game.clients[i].sess.team == TEAM_BLUE) {
+			iscore_blue += game.clients[i].resp.score;
+			continue;
+		}
 	}
+
+	if (iscore_blue > iscore_red)
+		return TEAM_RED;
+	if (iscore_red > iscore_blue)
+		return TEAM_BLUE;
 
 	// otherwise just randomly select a team
 	return brandom() ? TEAM_RED : TEAM_BLUE;
@@ -1682,7 +1648,7 @@ void BroadcastTeamChange(gentity_t *ent, int old_team, bool inactive, bool silen
 	if (!ent->client)
 		return;
 
-	if (notGT(GT_DUEL) && ent->client->sess.team == old_team)
+	if (ent->client->sess.team == old_team)
 		return;
 
 	if (silent)
@@ -1706,13 +1672,8 @@ void BroadcastTeamChange(gentity_t *ent, int old_team, bool inactive, bool silen
 			s = G_Fmt("{} is inactive,\nmoved to spectators.\n", name).data();
 			t = "You are inactive and have been\nmoved to spectators.";
 		} else {
-			if (GT(GT_DUEL) && ent->client->sess.duel_queued) {
-				s = G_Fmt("{} is in the queue to play.\n", name).data();
-				t = "You are in the queue to play.";
-			} else {
-				s = G_Fmt("{} joined the spectators.\n", name).data();
-				t = "You are now spectating.";
-			}
+			s = G_Fmt("{} joined the spectators.\n", name).data();
+			t = "You are now spectating.";
 		}
 		break;
 	case TEAM_RED:
@@ -1746,12 +1707,7 @@ AllowTeamSwitch
 =================
 */
 static bool AllowTeamSwitch(gentity_t *ent, team_t desired_team) {
-	/*
-	if (desired_team != ent->client->sess.team && GT(GT_RR) && level.match_state == matchst_t::MATCH_IN_PROGRESS) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "You cannot change teams during a Red Rover match.\n");
-		return false;
-	}
-	*/
+
 	if (desired_team != TEAM_SPECTATOR && maxplayers->integer && level.num_playing_clients >= maxplayers->integer) {
 		gi.LocClient_Print(ent, PRINT_HIGH, "Maximum player count has been reached.\n");
 		return false; // ignore the request
@@ -1833,9 +1789,6 @@ Switch last joined player(s) from stacked team.
 */
 int TeamBalance(bool force) {
 	if (!Teams())
-		return 0;
-
-	if (GT(GT_RR))
 		return 0;
 
 	int delta = abs(level.num_playing_red - level.num_playing_blue);
@@ -2059,14 +2012,6 @@ bool SetTeam(gentity_t *ent, team_t desired_team, bool inactive, bool force, boo
 			return false;
 		}
 
-		if (GT(GT_DUEL)) {
-			if (desired_team != TEAM_SPECTATOR && level.num_playing_clients >= 2) {
-				desired_team = TEAM_SPECTATOR;
-				queue = true;
-				P_Menu_Close(ent);
-			}
-		}
-
 		if (!AllowTeamSwitch(ent, desired_team))
 			return false;
 
@@ -2074,13 +2019,6 @@ bool SetTeam(gentity_t *ent, team_t desired_team, bool inactive, bool force, boo
 			gi.LocClient_Print(ent, PRINT_HIGH, "You may not switch teams more than once per 5 seconds.\n");
 			P_Menu_Close(ent);
 			return false;
-		}
-	} else {
-		if (GT(GT_DUEL)) {
-			if (desired_team == TEAM_NONE) {
-				desired_team = TEAM_SPECTATOR;
-				queue = true;
-			}
 		}
 	}
 
@@ -2092,7 +2030,6 @@ bool SetTeam(gentity_t *ent, team_t desired_team, bool inactive, bool force, boo
 	if (ent->movetype == MOVETYPE_NOCLIP)
 		Weapon_Grapple_DoReset(ent->client);
 
-	CTF_DeadDropFlag(ent);
 	Tech_DeadDrop(ent);
 
 	FreeFollower(ent);
@@ -2107,7 +2044,6 @@ bool SetTeam(gentity_t *ent, team_t desired_team, bool inactive, bool force, boo
 	ent->client->resp.team_delay_time = force || !ent->client->sess.initialised ? level.time : level.time + 5_sec;
 	ent->client->sess.spectator_state = desired_team == TEAM_SPECTATOR ? SPECTATOR_FREE : SPECTATOR_NOT;
 	ent->client->sess.spectator_client = 0;
-	ent->client->sess.duel_queued = queue;
 
 	if (desired_team != TEAM_SPECTATOR) {
 		if (Teams())
@@ -2123,10 +2059,6 @@ bool SetTeam(gentity_t *ent, team_t desired_team, bool inactive, bool force, boo
 	}
 
 	ent->client->sess.initialised = true;
-
-	// if they are playing a duel, count as a loss
-	if (GT(GT_DUEL) && old_team == TEAM_FREE)
-		ent->client->sess.losses++;
 
 	ClientSpawn(ent);
 	G_PostRespawn(ent);
@@ -2269,75 +2201,6 @@ static void Cmd_Ghost_f(gentity_t *ent) {
 	gi.LocClient_Print(ent, PRINT_HIGH, "Invalid ghost code.\n");
 }
 
-
-static void Cmd_Stats_f(gentity_t *ent) {
-	if (!(GTF(GTF_CTF)))
-		return;
-
-	ghost_t *g;
-	static std::string text;
-
-	text.clear();
-
-	if (level.match_state == matchst_t::MATCH_WARMUP_READYUP) {
-		for (auto ec : active_clients()) {
-			if (!ClientIsPlaying(ec->client))
-				continue;
-			if (ec->client->resp.ready)
-				continue;
-
-			std::string_view str = G_Fmt("{} is not ready.\n", ec->client->resp.netname);
-			if (text.length() + str.length() < MAX_STRING_CHARS - 50)
-				text += str;
-		}
-	}
-
-	uint32_t i;
-	for (i = 0, g = level.ghosts; i < MAX_CLIENTS_KEX; i++, g++)
-		if (g->ent)
-			break;
-
-	if (i == MAX_CLIENTS_KEX) {
-		if (!text.length())
-			text = "No statistics available.\n";
-
-		gi.Client_Print(ent, PRINT_HIGH, text.c_str());
-		return;
-	}
-
-	text += "  #|Name            |Score|Kills|Death|BasDf|CarDf|Effcy|\n";
-
-	for (i = 0, g = level.ghosts; i < MAX_CLIENTS_KEX; i++, g++) {
-		if (!*g->netname)
-			continue;
-
-		int32_t e;
-
-		if (g->deaths + g->kills == 0)
-			e = 50;
-		else
-			e = g->kills * 100 / (g->kills + g->deaths);
-		std::string_view str = G_Fmt("{:3}|{:<16.16}|{:5}|{:5}|{:5}|{:5}|{:5}|{:4}%|\n",
-			g->number,
-			g->netname,
-			g->score,
-			g->kills,
-			g->deaths,
-			g->basedef,
-			g->carrierdef,
-			e);
-
-		if (text.length() + str.length() > MAX_STRING_CHARS - 50) {
-			text += "And more...\n";
-			break;
-		}
-
-		text += str;
-	}
-
-	gi.Client_Print(ent, PRINT_HIGH, text.c_str());
-}
-
 static void Cmd_Boot_f(gentity_t *ent) {
 	if (gi.argc() < 2) {
 		gi.LocClient_Print(ent, PRINT_HIGH, "Usage: {} [client name/num]\n", gi.argv(0));
@@ -2406,23 +2269,6 @@ static bool Vote_Val_Map(gentity_t *ent) {
 
 void Vote_Pass_RestartMatch() {
 	Match_Reset();
-}
-
-void Vote_Pass_Gametype() {
-	gametype_t gt = GT_IndexFromString(level.vote_arg.data());
-	if (gt == GT_NONE)
-		return;
-	
-	ChangeGametype(gt);
-}
-
-static bool Vote_Val_Gametype(gentity_t *ent) {
-	if (GT_IndexFromString(gi.argv(2)) == gametype_t::GT_NONE) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "Invalid gametype.\n");
-		return false;
-	}
-
-	return true;
 }
 
 static void Vote_Pass_Ruleset() {
@@ -2571,7 +2417,6 @@ vcmds_t vote_cmds[] = {
 	{"map",					Vote_Val_Map,			Vote_Pass_Map,			1,		2,	"[mapname]",						"changes to the specified map"},
 	{"nextmap",				Vote_Val_None,			Vote_Pass_NextMap,		2,		1,	"",									"move to the next map in the rotation"},
 	{"restart",				Vote_Val_None,			Vote_Pass_RestartMatch,	4,		1,	"",									"restarts the current match"},
-	{"gametype",			Vote_Val_Gametype,		Vote_Pass_Gametype,		8,		2,	"<ffa|duel|tdm|ctf|ca|ft|horde>",	"changes the current gametype"},
 	{"timelimit",			Vote_Val_Timelimit,		Vote_Pass_Timelimit,	16,		2,	"<0..$>",							"alters the match time limit, 0 for no time limit"},
 	{"scorelimit",			Vote_Val_Scorelimit,	Vote_Pass_Scorelimit,	32,		2,	"<0..$>",							"alters the match score limit, 0 for no score limit"},
 	{"shuffle",				Vote_Val_ShuffleTeams,	Vote_Pass_ShuffleTeams,	64,		2,	"",									"shuffles teams"},
@@ -3048,29 +2893,6 @@ static void Cmd_ForceVote_f(gentity_t *ent) {
 
 /*
 =================
-Cmd_Gametype_f
-=================
-*/
-static void Cmd_Gametype_f(gentity_t *ent) {
-	if (!deathmatch->integer)
-		return;
-
-	if (gi.argc() < 2) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "Usage: {} <ffa|duel|tdm|ctf|ca|ft|horde>\nChanges current gametype. Current gametype is {} ({}).\n", gi.argv(0), gt_long_name[g_gametype->integer], g_gametype->integer);
-		return;
-	}
-
-	gametype_t gt = GT_IndexFromString(gi.argv(1));
-	if (gt == GT_NONE) {
-		gi.LocClient_Print(ent, PRINT_HIGH, "Invalid gametype.\n");
-		return;
-	}
-
-	ChangeGametype(gt);
-}
-
-/*
-=================
 Cmd_Ruleset_f
 =================
 */
@@ -3164,7 +2986,7 @@ static bool ReadyConditions(gentity_t *ent, bool desired_status, bool admin_cmd)
 	switch (level.warmup_requisite) {
 	case warmupreq_t::WARMUP_REQ_MORE_PLAYERS:
 	{
-		int minp = GT(GT_DUEL) ? 2 : minplayers->integer;
+		int minp = minplayers->integer;
 		int req = minp - level.num_playing_clients;
 		gi.LocClient_Print(ent, PRINT_HIGH, "{}{} more player{} present.\n", s, req, req > 1 ? "s are" : " is");
 		break;
@@ -3408,8 +3230,6 @@ cmds_t client_cmds[] = {
 	{"fm",				Cmd_FragMessages_f,		CF_ALLOW_SPEC | CF_ALLOW_DEAD},
 	{"follow",			Cmd_Follow_f,			CF_ALLOW_SPEC | CF_ALLOW_DEAD},
 	{"forcevote",		Cmd_ForceVote_f,		CF_ADMIN_ONLY | CF_ALLOW_INT | CF_ALLOW_SPEC},
-	{"forfeit",			Cmd_Forfeit_f,			CF_ALLOW_DEAD},
-	{"gametype",		Cmd_Gametype_f,			CF_ADMIN_ONLY | CF_ALLOW_INT | CF_ALLOW_SPEC},
 	{"ghost",			Cmd_Ghost_f,			CF_ALLOW_DEAD | CF_ALLOW_INT | CF_ALLOW_SPEC},
 	{"give",			Cmd_Give_f,				CF_ALLOW_SPEC | CF_CHEAT_PROTECT},
 	{"god",				Cmd_God_f,				CF_ALLOW_SPEC | CF_CHEAT_PROTECT},
@@ -3458,7 +3278,6 @@ cmds_t client_cmds[] = {
 	{"shuffle",			Cmd_Shuffle_f,			CF_ADMIN_ONLY | CF_ALLOW_INT | CF_ALLOW_SPEC},
 	{"spawn",			Cmd_Spawn_f,			CF_ADMIN_ONLY | CF_ALLOW_SPEC},
 	{"startmatch",		Cmd_StartMatch_f,		CF_ADMIN_ONLY | CF_ALLOW_INT | CF_ALLOW_SPEC},
-	{"stats",			Cmd_Stats_f,			CF_ALLOW_INT | CF_ALLOW_SPEC},
 	{"target",			Cmd_Target_f,			CF_ALLOW_DEAD | CF_ALLOW_SPEC | CF_CHEAT_PROTECT},
 	{"team",			Cmd_Team_f,				CF_ALLOW_DEAD | CF_ALLOW_SPEC},
 	{"teleport",		Cmd_Teleport_f,			CF_ALLOW_SPEC | CF_CHEAT_PROTECT},

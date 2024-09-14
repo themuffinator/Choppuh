@@ -28,10 +28,6 @@ static void G_Menu_SetGamemodName(menu_t *p) {
 	Q_strlcpy(p->text, level.gamemod_name, sizeof(p->text));
 }
 
-static void G_Menu_SetGametypeName(menu_t *p) {
-	Q_strlcpy(p->text, level.gametype_name, sizeof(p->text));
-}
-
 static void G_Menu_SetLevelName(menu_t *p) {
 	static char levelname[33];
 
@@ -372,19 +368,17 @@ static void G_Menu_PMStats(gentity_t *ent, menu_hnd_t *p) {
 static const int cvmenu_map = 3;
 static const int cvmenu_nextmap = 4;
 static const int cvmenu_restart = 5;
-static const int cvmenu_gametype = 6;
-static const int cvmenu_timelimit = 7;
-static const int cvmenu_scorelimit = 8;
-static const int cvmenu_shuffle = 9;
-static const int cvmenu_balance = 10;
-static const int cvmenu_unlagged = 11;
-static const int cvmenu_cointoss = 12;
-static const int cvmenu_random = 13;
+static const int cvmenu_timelimit = 6;
+static const int cvmenu_scorelimit = 7;
+static const int cvmenu_shuffle = 8;
+static const int cvmenu_balance = 9;
+static const int cvmenu_unlagged = 10;
+static const int cvmenu_cointoss = 11;
+static const int cvmenu_random = 12;
 
 void G_Menu_CallVote_Map(gentity_t *ent, menu_hnd_t *p);
 void G_Menu_CallVote_NextMap(gentity_t *ent, menu_hnd_t *p);
 void G_Menu_CallVote_Restart(gentity_t *ent, menu_hnd_t *p);
-void G_Menu_CallVote_GameType(gentity_t *ent, menu_hnd_t *p);
 void G_Menu_CallVote_TimeLimit_Update(gentity_t *ent);
 void G_Menu_CallVote_TimeLimit(gentity_t *ent, menu_hnd_t *p);
 void G_Menu_CallVote_ScoreLimit(gentity_t *ent, menu_hnd_t *p);
@@ -402,7 +396,6 @@ const menu_t pmcallvotemenu[] = {
 	{ "change map", MENU_ALIGN_LEFT, G_Menu_CallVote_Map },
 	{ "go to next map", MENU_ALIGN_LEFT, G_Menu_CallVote_NextMap },
 	{ "restart match", MENU_ALIGN_LEFT, G_Menu_CallVote_Restart },
-	{ "change gametype", MENU_ALIGN_LEFT, G_Menu_CallVote_GameType },
 	{ "change time limit", MENU_ALIGN_LEFT, G_Menu_CallVote_TimeLimit },
 	{ "change score limit", MENU_ALIGN_LEFT, G_Menu_CallVote_ScoreLimit },
 	{ "shuffle teams", MENU_ALIGN_LEFT, G_Menu_CallVote_ShuffleTeams },
@@ -521,10 +514,6 @@ void G_Menu_CallVote_Restart(gentity_t *ent, menu_hnd_t *p) {
 	P_Menu_Close(ent);
 }
 
-void G_Menu_CallVote_GameType(gentity_t *ent, menu_hnd_t *p) {
-
-}
-
 void G_Menu_CallVote_TimeLimit_Update(gentity_t *ent) {
 
 	level.vote_arg = nullptr;
@@ -579,29 +568,6 @@ static void G_Menu_CallVote_Update(gentity_t *ent) {
 	Q_strlcpy(entries[i].text, "Call a Vote", sizeof(entries[i].text));
 	i++;
 	i++;
-	/*
-	entries[cvmenu_map].SelectFunc = G_Menu_CallVote_Map;
-	i++;
-	entries[cvmenu_nextmap].SelectFunc = G_Menu_CallVote_NextMap;
-	i++;
-	entries[cvmenu_restart].SelectFunc = G_Menu_CallVote_Restart;
-	i++;
-	entries[cvmenu_gametype].SelectFunc = G_Menu_CallVote_GameType;
-	i++;
-	entries[cvmenu_timelimit].SelectFunc = G_Menu_CallVote_TimeLimit;
-	i++;
-	entries[cvmenu_scorelimit].SelectFunc = G_Menu_CallVote_ScoreLimit;
-	i++;
-	entries[cvmenu_shuffle].SelectFunc = G_Menu_CallVote_ShuffleTeams;
-	i++;
-	entries[cvmenu_balance].SelectFunc = G_Menu_CallVote_BalanceTeams;
-	i++;
-	entries[cvmenu_unlagged].SelectFunc = G_Menu_CallVote_Unlagged;
-	i++;
-	entries[cvmenu_cointoss].SelectFunc = G_Menu_CallVote_Cointoss;
-	i++;
-	entries[cvmenu_random].SelectFunc = G_Menu_CallVote_Random;
-	*/
 }
 
 static void G_Menu_CallVote(gentity_t *ent, menu_hnd_t *p) {
@@ -722,9 +688,8 @@ void G_Menu_HostInfo(gentity_t *ent, menu_hnd_t *p);
 void G_Menu_ServerInfo(gentity_t *ent, menu_hnd_t *p);
 
 static const int jmenu_hostname = 0;
-static const int jmenu_gametype = 1;
-static const int jmenu_level = 2;
-static const int jmenu_match = 3;
+static const int jmenu_level = 1;
+static const int jmenu_match = 2;
 
 static const int jmenu_teams_join_red = 5;
 static const int jmenu_teams_join_blue = 6;
@@ -850,7 +815,6 @@ static void G_Menu_NoChaseCamUpdate(gentity_t *ent) {
 	menu_t *entries = ent->client->menu->entries;
 
 	G_Menu_SetGamemodName(&entries[jmenu_gamemod]);
-	G_Menu_SetGametypeName(&entries[jmenu_gametype]);
 	G_Menu_SetLevelName(&entries[jmenu_level]);
 }
 
@@ -931,7 +895,6 @@ static void G_Menu_ServerInfo_Update(gentity_t *ent) {
 	Q_strlcpy(entries[i].text, BREAKER, sizeof(entries[i].text));
 	i++;
 
-	Q_strlcpy(entries[i].text, level.gametype_name, sizeof(entries[i].text));
 	i++;
 	
 	if (level.level_name[0]) {
@@ -1038,7 +1001,7 @@ static void G_Menu_ServerInfo_Update(gentity_t *ent) {
 		i++;
 	}
 
-	if (Teams() && g_teamplay_force_balance->integer && notGT(GT_RR)) {
+	if (Teams() && g_teamplay_force_balance->integer) {
 		if (i >= 16) return;
 		Q_strlcpy(entries[i].text, "forced team balancing", sizeof(entries[i].text));
 		i++;
@@ -1138,7 +1101,6 @@ static void G_Menu_GameRules_Update(gentity_t *ent) {
 
 	Q_strlcpy(entries[i].text, "Game Rules", sizeof(entries[i].text)); i++;
 	Q_strlcpy(entries[i].text, BREAKER, sizeof(entries[i].text)); i++;
-	Q_strlcpy(entries[i].text, G_Fmt("{}", level.gametype_name).data(), sizeof(entries[i].text)); i++;
 }
 
 static void G_Menu_GameRules(gentity_t *ent, menu_hnd_t *p) {
@@ -1152,27 +1114,22 @@ static void G_Menu_Join_Update(gentity_t *ent) {
 	uint8_t	num_red = 0, num_blue = 0, num_free = 0, num_queue = 0;
 
 	for (auto ec : active_clients()) {
-		if (GT(GT_DUEL) && ec->client->sess.team == TEAM_SPECTATOR && ec->client->sess.duel_queued) {
-			num_queue++;
-		} else {
-			switch (ec->client->sess.team) {
-			case TEAM_FREE:
-				num_free++;
-				break;
-			case TEAM_RED:
-				num_red++;
-				break;
-			case TEAM_BLUE:
-				num_blue++;
-				break;
-			}
+		switch (ec->client->sess.team) {
+		case TEAM_FREE:
+			num_free++;
+			break;
+		case TEAM_RED:
+			num_red++;
+			break;
+		case TEAM_BLUE:
+			num_blue++;
+			break;
 		}
 	}
 
 	if (pmax < 1) pmax = 1;
 
 	G_Menu_SetGamemodName(entries + jmenu_gamemod);
-	G_Menu_SetGametypeName(entries + jmenu_gametype);
 
 	if (Teams()) {
 		if (!g_teamplay_allow_team_pick->integer && !level.locked[TEAM_RED] && !level.locked[TEAM_BLUE]) {
@@ -1202,11 +1159,8 @@ static void G_Menu_Join_Update(gentity_t *ent) {
 		if (level.locked[TEAM_FREE] || level.match_state == matchst_t::MATCH_IN_PROGRESS && g_match_lock->integer) {
 			Q_strlcpy(entries[jmenu_free_join].text, "Match LOCKED during play", sizeof(entries[jmenu_free_join].text));
 			entries[jmenu_free_join].SelectFunc = nullptr;
-		} else if (GT(GT_DUEL) && level.num_playing_clients == 2) {
-			Q_strlcpy(entries[jmenu_free_join].text, G_Fmt("Join Queue to Play ({}/{})", num_queue, pmax - 2).data(), sizeof(entries[jmenu_free_join].text));
-			entries[jmenu_free_join].SelectFunc = G_Menu_Join_Team_Free;
 		} else {
-			Q_strlcpy(entries[jmenu_free_join].text, G_Fmt("Join Match ({}/{})", num_free, GT(GT_DUEL) ? 2 : pmax).data(), sizeof(entries[jmenu_free_join].text));
+			Q_strlcpy(entries[jmenu_free_join].text, G_Fmt("Join Match ({}/{})", num_free, pmax).data(), sizeof(entries[jmenu_free_join].text));
 			entries[jmenu_free_join].SelectFunc = G_Menu_Join_Team_Free;
 		}
 	}
@@ -1241,7 +1195,6 @@ static void G_Menu_Join_Update(gentity_t *ent) {
 		Q_strlcpy(entries[index].text, "$g_pc_chase_camera", sizeof(entries[index].text));
 
 	G_Menu_SetHostName(entries + jmenu_hostname);
-	G_Menu_SetGametypeName(entries + jmenu_gametype);
 	G_Menu_SetLevelName(entries + jmenu_level);
 
 	G_Menu_SetGamemodName(entries + jmenu_gamemod);
