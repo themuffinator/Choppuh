@@ -9,8 +9,8 @@
 // the "gameversion" client command will print this plus compile date
 constexpr const char *GAMEVERSION = "baseq2";
 
-constexpr const char *GAMEMOD_TITLE = "Muff Mode BETA";
-constexpr const char *GAMEMOD_VERSION = "0.19.0";
+constexpr const char *GAMEMOD_TITLE = "Choppuh!";
+constexpr const char *GAMEMOD_VERSION = "0.01.0";
 
 //==================================================================
 
