@@ -1320,7 +1320,7 @@ void SP_misc_banner(gentity_t *ent) {
 }
 
 /*-----------------------------------------------------------------------*/
-/*QUAKED misc_ctf_banner (1 .5 0) (-4 -64 0) (4 64 248) TEAM_BLUE x x x x x x x NOT_EASY NOT_MEDIUM NOT_HARD NOT_DM NOT_COOP
+/*QUAKED misc_ctf_banner (1 .5 0) (-4 -64 0) (4 64 248) TEAM_PREDATOR x x x x x x x NOT_EASY NOT_MEDIUM NOT_HARD NOT_DM NOT_COOP
 The origin is the bottom of the banner.
 The banner is 248 tall.
 */
@@ -1335,7 +1335,7 @@ void SP_misc_ctf_banner(gentity_t *ent) {
 	ent->movetype = MOVETYPE_NONE;
 	ent->solid = SOLID_NOT;
 	ent->s.modelindex = gi.modelindex("models/ctf/banner/tris.md2");
-	if (ent->spawnflags.has(SPAWNFLAG_CTF_BANNER_BLUE)) // TEAM_BLUE
+	if (ent->spawnflags.has(SPAWNFLAG_CTF_BANNER_BLUE)) // TEAM_PREDATOR
 		ent->s.skinnum = 1;
 
 	ent->s.frame = irandom(16);
@@ -1345,7 +1345,7 @@ void SP_misc_ctf_banner(gentity_t *ent) {
 	ent->nextthink = level.time + 10_hz;
 }
 
-/*QUAKED misc_ctf_small_banner (1 .5 0) (-4 -32 0) (4 32 124) TEAM_BLUE x x x x x x x NOT_EASY NOT_MEDIUM NOT_HARD NOT_DM NOT_COOP
+/*QUAKED misc_ctf_small_banner (1 .5 0) (-4 -32 0) (4 32 124) TEAM_PREDATOR x x x x x x x NOT_EASY NOT_MEDIUM NOT_HARD NOT_DM NOT_COOP
 The origin is the bottom of the banner.
 The banner is 124 tall.
 */
@@ -1353,7 +1353,7 @@ void SP_misc_ctf_small_banner(gentity_t *ent) {
 	ent->movetype = MOVETYPE_NONE;
 	ent->solid = SOLID_NOT;
 	ent->s.modelindex = gi.modelindex("models/ctf/banner/small.md2");
-	if (ent->spawnflags.has(SPAWNFLAG_CTF_BANNER_BLUE)) // TEAM_BLUE
+	if (ent->spawnflags.has(SPAWNFLAG_CTF_BANNER_BLUE)) // TEAM_PREDATOR
 		ent->s.skinnum = 1;
 
 	ent->s.frame = irandom(16);

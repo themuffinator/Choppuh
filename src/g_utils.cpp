@@ -542,10 +542,10 @@ bool KillBox(gentity_t *ent, bool from_spawning, mod_id_t mod, bool bsp_clipping
 
 const char *Teams_TeamName(team_t team) {
 	switch (team) {
-	case TEAM_RED:
-		return "RED";
-	case TEAM_BLUE:
-		return "BLUE";
+	case TEAM_SOLDIERS:
+		return "SOLDIERS";
+	case TEAM_PREDATOR:
+		return "PREDATOR";
 	case TEAM_SPECTATOR:
 		return "SPECTATOR";
 	case TEAM_FREE:
@@ -556,20 +556,20 @@ const char *Teams_TeamName(team_t team) {
 
 const char *Teams_OtherTeamName(team_t team) {
 	switch (team) {
-	case TEAM_RED:
-		return "BLUE";
-	case TEAM_BLUE:
-		return "RED";
+	case TEAM_SOLDIERS:
+		return "SOLDIERS";
+	case TEAM_PREDATOR:
+		return "PREDATOR";
 	}
 	return "UNKNOWN";
 }
 
 team_t Teams_OtherTeam(team_t team) {
 	switch (team) {
-	case TEAM_RED:
-		return TEAM_BLUE;
-	case TEAM_BLUE:
-		return TEAM_RED;
+	case TEAM_SOLDIERS:
+		return TEAM_PREDATOR;
+	case TEAM_PREDATOR:
+		return TEAM_SOLDIERS;
 	}
 	return TEAM_SPECTATOR; // invalid value
 }
@@ -592,10 +592,10 @@ void G_AssignPlayerSkin(gentity_t *ent, const char *s) {
 		t = "male/";
 
 	switch (ent->client->sess.team) {
-	case TEAM_RED:
+	case TEAM_SOLDIERS:
 		t = G_Fmt("{}\\{}{}\\default", ent->client->resp.netname, t, TEAM_RED_SKIN);
 		break;
-	case TEAM_BLUE:
+	case TEAM_PREDATOR:
 		t = G_Fmt("{}\\{}{}\\default", ent->client->resp.netname, t, TEAM_BLUE_SKIN);
 		break;
 	default:
@@ -665,10 +665,10 @@ void G_AdjustTeamScore(team_t team, int32_t offset) {
 	if (!Teams())
 		return;
 
-	if (team == TEAM_RED)
-		level.team_scores[TEAM_RED] += offset;
-	else if (team == TEAM_BLUE)
-		level.team_scores[TEAM_BLUE] += offset;
+	if (team == TEAM_SOLDIERS)
+		level.team_scores[TEAM_SOLDIERS] += offset;
+	else if (team == TEAM_PREDATOR)
+		level.team_scores[TEAM_PREDATOR] += offset;
 	else return;
 	CalculateRanks();
 }
@@ -688,10 +688,10 @@ void G_SetTeamScore(team_t team, int32_t value) {
 	if (!Teams())
 		return;
 
-	if (team == TEAM_RED)
-		level.team_scores[TEAM_RED] = value;
-	else if (team == TEAM_BLUE)
-		level.team_scores[TEAM_BLUE] = value;
+	if (team == TEAM_SOLDIERS)
+		level.team_scores[TEAM_SOLDIERS] = value;
+	else if (team == TEAM_PREDATOR)
+		level.team_scores[TEAM_PREDATOR] = value;
 	else return;
 	CalculateRanks();
 }
@@ -857,9 +857,9 @@ team_t StringToTeamNum(const char *in) {
 		return PickTeam(-1);
 	} else if (Teams()) {
 		if (!Q_strcasecmp(in, "blue") || !Q_strcasecmp(in, "b"))
-			return TEAM_BLUE;
+			return TEAM_PREDATOR;
 		else if (!Q_strcasecmp(in, "red") || !Q_strcasecmp(in, "r"))
-			return TEAM_RED;
+			return TEAM_SOLDIERS;
 	} else {
 		if (!Q_strcasecmp(in, "free") || !Q_strcasecmp(in, "f"))
 			return TEAM_FREE;

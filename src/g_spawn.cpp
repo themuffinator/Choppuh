@@ -1437,14 +1437,14 @@ static void G_LocateSpawnSpots(void) {
 			if (!Q_strcasecmp(ent->classname + sl, "team_red")) {
 				level.spawn_spots[n] = ent; n++;
 				level.num_spawn_spots_team++;
-				ent->fteam = TEAM_RED;
+				ent->fteam = TEAM_SOLDIERS;
 				ent->count = 1; // means its not initial spawn point
 				continue;
 			}
 			if (!Q_strcasecmp(ent->classname + sl, "team_blue")) {
 				level.spawn_spots[n] = ent; n++;
 				level.num_spawn_spots_team++;
-				ent->fteam = TEAM_BLUE;
+				ent->fteam = TEAM_PREDATOR;
 				ent->count = 1; // means its not initial spawn point
 				continue;
 			}

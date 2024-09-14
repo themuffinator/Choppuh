@@ -187,8 +187,8 @@ void G_ReportMatchDetails(bool is_end) {
 		Teams_CalcRankings(player_ranks);
 
 		gi.WriteByte(2);
-		gi.WriteString("RED TEAM");
-		gi.WriteString("BLUE TEAM");
+		gi.WriteString("HUMANS");
+		gi.WriteString("PREDATOR");
 	} else {
 		// sort players by score, then match everybody to
 		// the current highest score downwards until we run out of players.
@@ -242,7 +242,7 @@ void G_ReportMatchDetails(bool is_end) {
 			gi.WriteByte(player_ranks[player->s.number - 1]);
 
 			if (teams)
-				gi.WriteByte(player->client->sess.team == TEAM_RED ? 0 : 1);
+				gi.WriteByte(player->client->sess.team == TEAM_SOLDIERS ? 0 : 1);
 		}
 	}
 
@@ -277,9 +277,9 @@ void TeamsScoreboardMessage(gentity_t *ent, gentity_t *killer) {
 		cl_ent = g_entities + 1 + i;
 		if (!cl_ent->inuse)
 			continue;
-		if (game.clients[i].sess.team == TEAM_RED)
+		if (game.clients[i].sess.team == TEAM_SOLDIERS)
 			team = 0;
-		else if (game.clients[i].sess.team == TEAM_BLUE)
+		else if (game.clients[i].sess.team == TEAM_PREDATOR)
 			team = 1;
 		else
 			continue; // unknown team?
@@ -686,7 +686,7 @@ void DeathmatchScoreboardMessage(gentity_t *ent, gentity_t *killer) {
 
 		// selected player/killer tag
 		if (cl_ent == ent) {
-			const char *s = cl->sess.team == TEAM_RED ? "/tags/ctf_red" : cl->sess.team == TEAM_BLUE ? "/tags/ctf_blue" : "/tags/default";
+			const char *s = cl->sess.team == TEAM_SOLDIERS ? "/tags/ctf_red" : cl->sess.team == TEAM_PREDATOR ? "/tags/ctf_blue" : "/tags/default";
 			fmt::format_to(std::back_inserter(entry), FMT_STRING("xv {} yv {} picn {} "), x, y, s);
 		} else if (cl_ent == killer)
 			fmt::format_to(std::back_inserter(entry), FMT_STRING("xv {} yv {} picn {} "), x, y, "/tags/bloody");
@@ -992,9 +992,9 @@ static void SetCrosshairIDView(gentity_t *ent) {
 			return;
 
 		ent->client->ps.stats[STAT_CROSSHAIR_ID_VIEW] = (tr.ent - g_entities);
-		if (tr.ent->client->sess.team == TEAM_RED)
+		if (tr.ent->client->sess.team == TEAM_SOLDIERS)
 			ent->client->ps.stats[STAT_CROSSHAIR_ID_VIEW_COLOR] = ii_teams_red_tiny;
-		else if (tr.ent->client->sess.team == TEAM_BLUE)
+		else if (tr.ent->client->sess.team == TEAM_PREDATOR)
 			ent->client->ps.stats[STAT_CROSSHAIR_ID_VIEW_COLOR] = ii_teams_blue_tiny;
 		return;
 	}
@@ -1020,9 +1020,9 @@ static void SetCrosshairIDView(gentity_t *ent) {
 	}
 	if (bd > 0.90f) {
 		ent->client->ps.stats[STAT_CROSSHAIR_ID_VIEW] = (best - g_entities);
-		if (best->client->sess.team == TEAM_RED)
+		if (best->client->sess.team == TEAM_SOLDIERS)
 			ent->client->ps.stats[STAT_CROSSHAIR_ID_VIEW_COLOR] = ii_teams_red_tiny;
-		else if (best->client->sess.team == TEAM_BLUE)
+		else if (best->client->sess.team == TEAM_PREDATOR)
 			ent->client->ps.stats[STAT_CROSSHAIR_ID_VIEW_COLOR] = ii_teams_blue_tiny;
 	}
 }
@@ -1110,9 +1110,9 @@ static void SetMiniScoreStats(gentity_t *ent) {
 		if (level.intermission_time && blink) {
 			// blink half second
 			// note that level.total[12] is set when we go to intermission
-			if (level.team_scores[TEAM_RED] > level.team_scores[TEAM_BLUE])
+			if (level.team_scores[TEAM_SOLDIERS] > level.team_scores[TEAM_PREDATOR])
 				ent->client->ps.stats[STAT_TEAM_RED_HEADER] = 0;
-			else if (level.team_scores[TEAM_BLUE] > level.team_scores[TEAM_RED])
+			else if (level.team_scores[TEAM_PREDATOR] > level.team_scores[TEAM_SOLDIERS])
 				ent->client->ps.stats[STAT_TEAM_BLUE_HEADER] = 0;
 			else { // tie game!
 				ent->client->ps.stats[STAT_TEAM_RED_HEADER] = 0;
@@ -1125,9 +1125,9 @@ static void SetMiniScoreStats(gentity_t *ent) {
 	if (teams) {
 		if (level.match_state == MATCH_IN_PROGRESS) {
 			ent->client->ps.stats[STAT_MINISCORE_FIRST_PIC] = ii_teams_red_default;
-			ent->client->ps.stats[STAT_MINISCORE_FIRST_SCORE] = level.team_scores[TEAM_RED];
+			ent->client->ps.stats[STAT_MINISCORE_FIRST_SCORE] = level.team_scores[TEAM_SOLDIERS];
 			ent->client->ps.stats[STAT_MINISCORE_SECOND_PIC] = ii_teams_blue_default;
-			ent->client->ps.stats[STAT_MINISCORE_SECOND_SCORE] = level.team_scores[TEAM_BLUE];
+			ent->client->ps.stats[STAT_MINISCORE_SECOND_SCORE] = level.team_scores[TEAM_PREDATOR];
 		}
 
 		//TODO: configstrings??
@@ -1162,9 +1162,9 @@ static void SetMiniScoreStats(gentity_t *ent) {
 	ent->client->ps.stats[STAT_MINISCORE_SECOND_POS] = 0;
 	if (level.match_state == MATCH_IN_PROGRESS) {
 		if (teams) {
-			if (ent->client->sess.team == TEAM_RED)
+			if (ent->client->sess.team == TEAM_SOLDIERS)
 				ent->client->ps.stats[STAT_MINISCORE_FIRST_POS] = ii_highlight;
-			else if (ent->client->sess.team == TEAM_BLUE)
+			else if (ent->client->sess.team == TEAM_PREDATOR)
 				ent->client->ps.stats[STAT_MINISCORE_SECOND_POS] = ii_highlight;
 		} else {
 			if (own_num >= 0) {
@@ -1198,10 +1198,10 @@ void G_SetStats(gentity_t *ent) {
 		ent->client->ps.stats[STAT_HEALTH_ICON] = level.disguise_icon;
 	else {
 		switch (ent->client->sess.team) {
-		case TEAM_RED:
+		case TEAM_SOLDIERS:
 			ent->client->ps.stats[STAT_HEALTH_ICON] = ii_teams_red_default;
 			break;
-		case TEAM_BLUE:
+		case TEAM_PREDATOR:
 			ent->client->ps.stats[STAT_HEALTH_ICON] = ii_teams_blue_default;
 			break;
 		default:

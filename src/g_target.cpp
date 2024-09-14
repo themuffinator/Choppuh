@@ -2366,9 +2366,9 @@ static USE(target_print_use) (gentity_t *ent, gentity_t *other, gentity_t *activ
 
 	if (ent->spawnflags.has(3_spawnflag)) {
 		if (ent->spawnflags.has(1_spawnflag))
-			BroadcastTeamMessage(TEAM_RED, PRINT_CENTER, G_Fmt("{}", ent->message).data());
+			BroadcastTeamMessage(TEAM_SOLDIERS, PRINT_CENTER, G_Fmt("{}", ent->message).data());
 		if (ent->spawnflags.has(2_spawnflag))
-			BroadcastTeamMessage(TEAM_BLUE, PRINT_CENTER, G_Fmt("{}", ent->message).data());
+			BroadcastTeamMessage(TEAM_PREDATOR, PRINT_CENTER, G_Fmt("{}", ent->message).data());
 		return;
 	}
 

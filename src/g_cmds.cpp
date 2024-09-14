@@ -1594,16 +1594,16 @@ team_t PickTeam(int ignore_client_num) {
 		return TEAM_FREE;
 
 	if (level.num_playing_blue > level.num_playing_red)
-		return TEAM_RED;
+		return TEAM_SOLDIERS;
 
 	if (level.num_playing_red > level.num_playing_blue)
-		return TEAM_BLUE;
+		return TEAM_PREDATOR;
 
 	// equal team count, so join the team with the lowest score
-	if (level.team_scores[TEAM_BLUE] > level.team_scores[TEAM_RED])
-		return TEAM_RED;
-	if (level.team_scores[TEAM_RED] > level.team_scores[TEAM_BLUE])
-		return TEAM_BLUE;
+	if (level.team_scores[TEAM_PREDATOR] > level.team_scores[TEAM_SOLDIERS])
+		return TEAM_SOLDIERS;
+	if (level.team_scores[TEAM_SOLDIERS] > level.team_scores[TEAM_PREDATOR])
+		return TEAM_PREDATOR;
 
 	// equal team scores, so join team with lowest total individual scores
 	int iscore_red = 0, iscore_blue = 0;
@@ -1614,23 +1614,23 @@ team_t PickTeam(int ignore_client_num) {
 		if (!game.clients[i].pers.connected)
 			continue;
 
-		if (game.clients[i].sess.team == TEAM_RED) {
+		if (game.clients[i].sess.team == TEAM_SOLDIERS) {
 			iscore_red += game.clients[i].resp.score;
 			continue;
 		}
-		if (game.clients[i].sess.team == TEAM_BLUE) {
+		if (game.clients[i].sess.team == TEAM_PREDATOR) {
 			iscore_blue += game.clients[i].resp.score;
 			continue;
 		}
 	}
 
 	if (iscore_blue > iscore_red)
-		return TEAM_RED;
+		return TEAM_SOLDIERS;
 	if (iscore_red > iscore_blue)
-		return TEAM_BLUE;
+		return TEAM_PREDATOR;
 
 	// otherwise just randomly select a team
-	return brandom() ? TEAM_RED : TEAM_BLUE;
+	return brandom() ? TEAM_SOLDIERS : TEAM_PREDATOR;
 }
 
 /*
@@ -1676,8 +1676,8 @@ void BroadcastTeamChange(gentity_t *ent, int old_team, bool inactive, bool silen
 			t = "You are now spectating.";
 		}
 		break;
-	case TEAM_RED:
-	case TEAM_BLUE:
+	case TEAM_SOLDIERS:
+	case TEAM_PREDATOR:
 		s = G_Fmt("{} joined the {} Team.\n", name, Teams_TeamName(ent->client->sess.team)).data();
 		t = G_Fmt("You have joined the {} Team.\n", Teams_TeamName(ent->client->sess.team)).data();
 		break;
@@ -1721,8 +1721,8 @@ static bool AllowTeamSwitch(gentity_t *ent, team_t desired_team) {
 	if (Teams()) {
 		if (g_teamplay_force_balance->integer) {
 			// We allow a spread of two
-			if ((desired_team == TEAM_RED && (level.num_playing_red - level.num_playing_blue > 1)) ||
-				(desired_team == TEAM_BLUE && (level.num_playing_blue - level.num_playing_red > 1))) {
+			if ((desired_team == TEAM_SOLDIERS && (level.num_playing_red - level.num_playing_blue > 1)) ||
+				(desired_team == TEAM_PREDATOR && (level.num_playing_blue - level.num_playing_red > 1))) {
 				gi.LocClient_Print(ent, PRINT_HIGH, "{} has too many players.\n", Teams_TeamName(desired_team));
 				return false; // ignore the request
 			}
@@ -1796,7 +1796,7 @@ int TeamBalance(bool force) {
 	if (delta < 2)
 		return level.num_playing_red - level.num_playing_blue;
 
-	team_t stack_team = level.num_playing_red > level.num_playing_blue ? TEAM_RED : TEAM_BLUE;
+	team_t stack_team = level.num_playing_red > level.num_playing_blue ? TEAM_SOLDIERS : TEAM_PREDATOR;
 
 	size_t	count = 0;
 	int		index[MAX_CLIENTS_KEX/2];
@@ -1830,7 +1830,7 @@ int TeamBalance(bool force) {
 			if (cl->sess.team != stack_team)
 				continue;
 
-			cl->sess.team = stack_team == TEAM_RED ? TEAM_BLUE : TEAM_RED;
+			cl->sess.team = stack_team == TEAM_SOLDIERS ? TEAM_PREDATOR : TEAM_SOLDIERS;
 
 			//TODO: queue this change in round-based games
 			ClientRespawn(&g_entities[cl - game.clients + 1]);
@@ -1871,7 +1871,7 @@ bool TeamShuffle() {
 	// determine max team size based from active players
 	int maxteam = ceil(level.num_playing_clients / 2);
 	int count_red = 0, count_blue = 0;
-	team_t setteam = join_red ? TEAM_RED : TEAM_BLUE;
+	team_t setteam = join_red ? TEAM_SOLDIERS : TEAM_PREDATOR;
 	
 	// create random array
 	for (size_t i = 0; i < MAX_CLIENTS_KEX; i++) {
@@ -1906,18 +1906,18 @@ bool TeamShuffle() {
 			continue;
 
 		if (count_red >= maxteam || count_red > count_blue)
-			setteam = TEAM_BLUE;
+			setteam = TEAM_PREDATOR;
 		else if (count_blue >= maxteam || count_blue > count_red)
-			setteam = TEAM_RED;
+			setteam = TEAM_SOLDIERS;
 		
 		ent->client->sess.team = setteam;
 
-		if (setteam == TEAM_RED)
+		if (setteam == TEAM_SOLDIERS)
 			count_red++;
 		else count_blue++;
 
 		join_red ^= true;
-		setteam = join_red ? TEAM_RED : TEAM_BLUE;
+		setteam = join_red ? TEAM_SOLDIERS : TEAM_PREDATOR;
 	}
 
 	return true;
@@ -2087,8 +2087,8 @@ static void Cmd_Team_f(gentity_t *ent) {
 		case TEAM_FREE:
 			gi.LocClient_Print(ent, PRINT_HIGH, "You are in the match.\n");
 			break;
-		case TEAM_RED:
-		case TEAM_BLUE:
+		case TEAM_SOLDIERS:
+		case TEAM_PREDATOR:
 			gi.LocClient_Print(ent, PRINT_HIGH, "Your team: {}\n", Teams_TeamName(ent->client->sess.team));
 			break;
 		default:

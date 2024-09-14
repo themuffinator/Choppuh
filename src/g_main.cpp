@@ -575,8 +575,8 @@ static void InitGame() {
 
 	level.locked[TEAM_SPECTATOR] = false;
 	level.locked[TEAM_FREE] = false;
-	level.locked[TEAM_RED] = false;
-	level.locked[TEAM_BLUE] = false;
+	level.locked[TEAM_SOLDIERS] = false;
+	level.locked[TEAM_PREDATOR] = false;
 
 	*level.weapon_count = { 0 };
 
@@ -815,7 +815,7 @@ void Match_Start() {
 	level.warmup_requisite = warmupreq_t::WARMUP_REQ_NONE;
 	level.warmup_notice_time = 0_sec;
 
-	level.team_scores[TEAM_RED] = level.team_scores[TEAM_BLUE] = 0;
+	level.team_scores[TEAM_SOLDIERS] = level.team_scores[TEAM_PREDATOR] = 0;
 
 	level.total_player_deaths = 0;
 
@@ -979,12 +979,12 @@ static void CheckDMRoundState(void) {
 
 		for (auto ec : active_clients()) {
 			switch (ec->client->sess.team) {
-			case TEAM_RED:
+			case TEAM_SOLDIERS:
 				count_red++;
 				if (!ec->client->eliminated)
 					count_living_red++;
 				break;
-			case TEAM_BLUE:
+			case TEAM_PREDATOR:
 				count_blue++;
 				if (!ec->client->eliminated)
 					count_living_blue++;
@@ -995,16 +995,16 @@ static void CheckDMRoundState(void) {
 		// check eliminated first
 		if (!count_living_red && count_living_blue) {
 			int points = 1;
-			G_AdjustTeamScore(TEAM_BLUE, points);
-			gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_BLUE), Teams_TeamName(TEAM_RED));
+			G_AdjustTeamScore(TEAM_PREDATOR, points);
+			gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_PREDATOR), Teams_TeamName(TEAM_SOLDIERS));
 			gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 			Round_End();
 			return;
 		}
 		if (!count_living_blue && count_living_red) {
 			int points = 1;
-			G_AdjustTeamScore(TEAM_RED, points);
-			gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_RED), Teams_TeamName(TEAM_BLUE));
+			G_AdjustTeamScore(TEAM_SOLDIERS, points);
+			gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(eliminated {})\n", Teams_TeamName(TEAM_SOLDIERS), Teams_TeamName(TEAM_PREDATOR));
 			gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 			Round_End();
 			return;
@@ -1013,12 +1013,12 @@ static void CheckDMRoundState(void) {
 		// hit the round time limit, check any other winning conditions
 		if (level.time >= level.round_state_timer) {
 			if (level.num_living_red > level.num_living_blue) {
-				G_AdjustTeamScore(TEAM_RED, 1);
-				gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_RED), level.num_living_red, level.num_living_blue);
+				G_AdjustTeamScore(TEAM_SOLDIERS, 1);
+				gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_SOLDIERS), level.num_living_red, level.num_living_blue);
 				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 			} else if (level.num_living_blue > level.num_living_red) {
-				G_AdjustTeamScore(TEAM_BLUE, 1);
-				gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_BLUE), level.num_living_blue, level.num_living_red);
+				G_AdjustTeamScore(TEAM_PREDATOR, 1);
+				gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(players remaining: {} vs {})\n", Teams_TeamName(TEAM_PREDATOR), level.num_living_blue, level.num_living_red);
 				gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 			} else {
 				int total_health_red = 0, total_health_blue = 0;
@@ -1027,22 +1027,22 @@ static void CheckDMRoundState(void) {
 					if (ec->health <= 0)
 						continue;
 					switch (ec->client->sess.team) {
-					case TEAM_RED:
+					case TEAM_SOLDIERS:
 						total_health_red += ec->health;
 						break;
-					case TEAM_BLUE:
+					case TEAM_PREDATOR:
 						total_health_blue += ec->health;
 						break;
 					}
 				}
 
 				if (total_health_red > total_health_blue) {
-					G_AdjustTeamScore(TEAM_RED, 1);
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_RED), total_health_red, total_health_blue);
+					G_AdjustTeamScore(TEAM_SOLDIERS, 1);
+					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_SOLDIERS), total_health_red, total_health_blue);
 					gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 				} else if (total_health_blue > total_health_red) {
-					G_AdjustTeamScore(TEAM_BLUE, 1);
-					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_BLUE), total_health_blue, total_health_red);
+					G_AdjustTeamScore(TEAM_PREDATOR, 1);
+					gi.LocBroadcast_Print(PRINT_CENTER, "{} wins the round!\n(total health: {} vs {})\n", Teams_TeamName(TEAM_PREDATOR), total_health_blue, total_health_red);
 					gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 				} else {
 					gi.LocBroadcast_Print(PRINT_CENTER, "Round draw!");
@@ -1429,7 +1429,7 @@ static bool ScoreIsTied(void) {
 		return false;
 
 	if (Teams())
-		return level.team_scores[TEAM_RED] == level.team_scores[TEAM_BLUE];
+		return level.team_scores[TEAM_SOLDIERS] == level.team_scores[TEAM_PREDATOR];
 
 	return game.clients[level.sorted_clients[0]].resp.score == game.clients[level.sorted_clients[1]].resp.score;
 }
@@ -1545,7 +1545,7 @@ void CalculateRanks() {
 			level.follow2 = ec->client - game.clients;
 
 		if (teams) {
-			if (cl->sess.team == TEAM_RED) {
+			if (cl->sess.team == TEAM_SOLDIERS) {
 				level.num_playing_red++;
 				if (cl->pers.health > 0)
 					level.num_living_red++;
@@ -1568,9 +1568,9 @@ void CalculateRanks() {
 		// in team games, rank is just the order of the teams, 0=red, 1=blue, 2=tied
 		for (size_t i = 0; i < level.num_connected_clients; i++) {
 			cl = &game.clients[level.sorted_clients[i]];
-			if (level.team_scores[TEAM_RED] == level.team_scores[TEAM_BLUE]) {
+			if (level.team_scores[TEAM_SOLDIERS] == level.team_scores[TEAM_PREDATOR]) {
 				cl->resp.rank = 2;
-			} else if (level.team_scores[TEAM_RED] > level.team_scores[TEAM_BLUE]) {
+			} else if (level.team_scores[TEAM_SOLDIERS] > level.team_scores[TEAM_PREDATOR]) {
 				cl->resp.rank = 0;
 			} else {
 				cl->resp.rank = 1;
@@ -2070,12 +2070,12 @@ void CheckDMExitRules() {
 
 				// find the winner and broadcast it
 				if (teams) {
-					if (level.team_scores[TEAM_RED] > level.team_scores[TEAM_BLUE]) {
-						QueueIntermission(G_Fmt("{} Team WINS with a final score of {} to {}.\n", Teams_TeamName(TEAM_RED), level.team_scores[TEAM_RED], level.team_scores[TEAM_BLUE]).data(), false, false);
+					if (level.team_scores[TEAM_SOLDIERS] > level.team_scores[TEAM_PREDATOR]) {
+						QueueIntermission(G_Fmt("{} Team WINS with a final score of {} to {}.\n", Teams_TeamName(TEAM_SOLDIERS), level.team_scores[TEAM_SOLDIERS], level.team_scores[TEAM_PREDATOR]).data(), false, false);
 						return;
 					}
-					if (level.team_scores[TEAM_BLUE] > level.team_scores[TEAM_RED]) {
-						QueueIntermission(G_Fmt("{} Team WINS with a final score of {} to {}.\n", Teams_TeamName(TEAM_BLUE), level.team_scores[TEAM_BLUE], level.team_scores[TEAM_RED]).data(), false, false);
+					if (level.team_scores[TEAM_PREDATOR] > level.team_scores[TEAM_SOLDIERS]) {
+						QueueIntermission(G_Fmt("{} Team WINS with a final score of {} to {}.\n", Teams_TeamName(TEAM_PREDATOR), level.team_scores[TEAM_PREDATOR], level.team_scores[TEAM_SOLDIERS]).data(), false, false);
 						return;
 					}
 				} else {
@@ -2091,12 +2091,12 @@ void CheckDMExitRules() {
 	
 	if (mercylimit->integer > 0) {
 		if (teams) {
-			if (level.team_scores[TEAM_RED] >= level.team_scores[TEAM_BLUE] + mercylimit->integer) {
-				QueueIntermission(G_Fmt("{} hit the mercylimit ({}).", Teams_TeamName(TEAM_RED), mercylimit->integer).data(), true, false);
+			if (level.team_scores[TEAM_SOLDIERS] >= level.team_scores[TEAM_PREDATOR] + mercylimit->integer) {
+				QueueIntermission(G_Fmt("{} hit the mercylimit ({}).", Teams_TeamName(TEAM_SOLDIERS), mercylimit->integer).data(), true, false);
 				return;
 			}
-			if (level.team_scores[TEAM_BLUE] >= level.team_scores[TEAM_RED] + mercylimit->integer) {
-				QueueIntermission(G_Fmt("{} hit the mercylimit ({}).", Teams_TeamName(TEAM_BLUE), mercylimit->integer).data(), true, false);
+			if (level.team_scores[TEAM_PREDATOR] >= level.team_scores[TEAM_SOLDIERS] + mercylimit->integer) {
+				QueueIntermission(G_Fmt("{} hit the mercylimit ({}).", Teams_TeamName(TEAM_PREDATOR), mercylimit->integer).data(), true, false);
 				return;
 			}
 		}
@@ -2110,12 +2110,12 @@ void CheckDMExitRules() {
 	if (!scorelimit) return;
 
 	if (teams) {
-		if (level.team_scores[TEAM_RED] >= scorelimit) {
-			QueueIntermission(G_Fmt("{} WINS! (hit the {} limit)", Teams_TeamName(TEAM_RED), GT_ScoreLimitString()).data(), false, false);
+		if (level.team_scores[TEAM_SOLDIERS] >= scorelimit) {
+			QueueIntermission(G_Fmt("{} WINS! (hit the {} limit)", Teams_TeamName(TEAM_SOLDIERS), GT_ScoreLimitString()).data(), false, false);
 			return;
 		}
-		if (level.team_scores[TEAM_BLUE] >= scorelimit) {
-			QueueIntermission(G_Fmt("{} WINS! (hit the {} limit)", Teams_TeamName(TEAM_BLUE), GT_ScoreLimitString()).data(), false, false);
+		if (level.team_scores[TEAM_PREDATOR] >= scorelimit) {
+			QueueIntermission(G_Fmt("{} WINS! (hit the {} limit)", Teams_TeamName(TEAM_PREDATOR), GT_ScoreLimitString()).data(), false, false);
 			return;
 		}
 	} else {
@@ -2153,12 +2153,12 @@ void Teams_CalcRankings(std::array<uint32_t, MAX_CLIENTS> &player_ranks) {
 		return;
 
 	// we're all winners.. or losers. whatever
-	if (level.team_scores[TEAM_RED] == level.team_scores[TEAM_BLUE]) {
+	if (level.team_scores[TEAM_SOLDIERS] == level.team_scores[TEAM_PREDATOR]) {
 		player_ranks.fill(1);
 		return;
 	}
 
-	team_t winning_team = (level.team_scores[TEAM_RED] > level.team_scores[TEAM_BLUE]) ? TEAM_RED : TEAM_BLUE;
+	team_t winning_team = (level.team_scores[TEAM_SOLDIERS] > level.team_scores[TEAM_PREDATOR]) ? TEAM_SOLDIERS : TEAM_PREDATOR;
 
 	for (auto player : active_clients())
 		if (player->client->pers.spawned && ClientIsPlaying(player->client))

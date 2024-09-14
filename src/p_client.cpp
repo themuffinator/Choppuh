@@ -1643,10 +1643,10 @@ static gentity_t *SelectTeamSpawnPoint(gentity_t *ent, bool force_spawn) {
 	const char *cname;
 
 	switch (ent->client->sess.team) {
-		case TEAM_RED:
+		case TEAM_SOLDIERS:
 			cname = "info_player_team_red";
 			break;
-		case TEAM_BLUE:
+		case TEAM_PREDATOR:
 			cname = "info_player_team_blue";
 			break;
 		default:

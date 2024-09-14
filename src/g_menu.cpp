@@ -668,14 +668,14 @@ static void G_Menu_Join_Team_Free(gentity_t *ent, menu_hnd_t *p) {
 }
 
 static void G_Menu_Join_Team_Red(gentity_t *ent, menu_hnd_t *p) {
-	SetTeam(ent, !g_teamplay_allow_team_pick->integer ? PickTeam(-1) : TEAM_RED, false, false, false);
+	SetTeam(ent, !g_teamplay_allow_team_pick->integer ? PickTeam(-1) : TEAM_SOLDIERS, false, false, false);
 }
 
 static void G_Menu_Join_Team_Blue(gentity_t *ent, menu_hnd_t *p) {
 	if (!g_teamplay_allow_team_pick->integer)
 		return;
 
-	SetTeam(ent, TEAM_BLUE, false, false, false);
+	SetTeam(ent, TEAM_PREDATOR, false, false, false);
 }
 
 static void G_Menu_Join_Team_Spec(gentity_t *ent, menu_hnd_t *p) {
@@ -1118,10 +1118,10 @@ static void G_Menu_Join_Update(gentity_t *ent) {
 		case TEAM_FREE:
 			num_free++;
 			break;
-		case TEAM_RED:
+		case TEAM_SOLDIERS:
 			num_red++;
 			break;
-		case TEAM_BLUE:
+		case TEAM_PREDATOR:
 			num_blue++;
 			break;
 		}
@@ -1132,25 +1132,25 @@ static void G_Menu_Join_Update(gentity_t *ent) {
 	G_Menu_SetGamemodName(entries + jmenu_gamemod);
 
 	if (Teams()) {
-		if (!g_teamplay_allow_team_pick->integer && !level.locked[TEAM_RED] && !level.locked[TEAM_BLUE]) {
+		if (!g_teamplay_allow_team_pick->integer && !level.locked[TEAM_SOLDIERS] && !level.locked[TEAM_PREDATOR]) {
 			Q_strlcpy(entries[jmenu_teams_join_red].text, G_Fmt("Join a Team ({}/{})", num_red + num_blue, pmax).data(), sizeof(entries[jmenu_teams_join_red].text));
 			Q_strlcpy(entries[jmenu_teams_join_blue].text, "", sizeof(entries[jmenu_teams_join_blue].text));
 
 			entries[jmenu_teams_join_red].SelectFunc = G_Menu_Join_Team_Red;
 			entries[jmenu_teams_join_blue].SelectFunc = nullptr;
 		} else {
-			if (level.locked[TEAM_RED] || level.match_state == matchst_t::MATCH_IN_PROGRESS && g_match_lock->integer) {
-				Q_strlcpy(entries[jmenu_teams_join_red].text, G_Fmt("{} is LOCKED during play", Teams_TeamName(TEAM_RED)).data(), sizeof(entries[jmenu_teams_join_red].text));
+			if (level.locked[TEAM_SOLDIERS] || level.match_state == matchst_t::MATCH_IN_PROGRESS && g_match_lock->integer) {
+				Q_strlcpy(entries[jmenu_teams_join_red].text, G_Fmt("{} is LOCKED during play", Teams_TeamName(TEAM_SOLDIERS)).data(), sizeof(entries[jmenu_teams_join_red].text));
 				entries[jmenu_teams_join_red].SelectFunc = nullptr;
 			} else {
-				Q_strlcpy(entries[jmenu_teams_join_red].text, G_Fmt("Join {} ({}/{})", Teams_TeamName(TEAM_RED), num_red, floor(pmax / 2)).data(), sizeof(entries[jmenu_teams_join_red].text));
+				Q_strlcpy(entries[jmenu_teams_join_red].text, G_Fmt("Join {} ({}/{})", Teams_TeamName(TEAM_SOLDIERS), num_red, floor(pmax / 2)).data(), sizeof(entries[jmenu_teams_join_red].text));
 				entries[jmenu_teams_join_red].SelectFunc = G_Menu_Join_Team_Red;
 			}
-			if (level.locked[TEAM_BLUE] || level.match_state == matchst_t::MATCH_IN_PROGRESS && g_match_lock->integer) {
-				Q_strlcpy(entries[jmenu_teams_join_blue].text, G_Fmt("{} is LOCKED during play", Teams_TeamName(TEAM_BLUE)).data(), sizeof(entries[jmenu_teams_join_blue].text));
+			if (level.locked[TEAM_PREDATOR] || level.match_state == matchst_t::MATCH_IN_PROGRESS && g_match_lock->integer) {
+				Q_strlcpy(entries[jmenu_teams_join_blue].text, G_Fmt("{} is LOCKED during play", Teams_TeamName(TEAM_PREDATOR)).data(), sizeof(entries[jmenu_teams_join_blue].text));
 				entries[jmenu_teams_join_blue].SelectFunc = nullptr;
 			} else {
-				Q_strlcpy(entries[jmenu_teams_join_blue].text, G_Fmt("Join {} ({}/{})", Teams_TeamName(TEAM_BLUE), num_blue, floor(pmax / 2)).data(), sizeof(entries[jmenu_teams_join_blue].text));
+				Q_strlcpy(entries[jmenu_teams_join_blue].text, G_Fmt("Join {} ({}/{})", Teams_TeamName(TEAM_PREDATOR), num_blue, floor(pmax / 2)).data(), sizeof(entries[jmenu_teams_join_blue].text));
 				entries[jmenu_teams_join_blue].SelectFunc = G_Menu_Join_Team_Blue;
 			}
 
@@ -1245,21 +1245,21 @@ void G_Menu_Join_Open(gentity_t *ent) {
 
 		for (auto ec : active_clients()) {
 			switch (ec->client->sess.team) {
-			case TEAM_RED:
+			case TEAM_SOLDIERS:
 				num_red++;
 				break;
-			case TEAM_BLUE:
+			case TEAM_PREDATOR:
 				num_blue++;
 				break;
 			}
 		}
 
 		if (num_red > num_blue)
-			team = TEAM_RED;
+			team = TEAM_SOLDIERS;
 		else if (num_blue > num_red)
-			team = TEAM_BLUE;
+			team = TEAM_PREDATOR;
 		else
-			team = brandom() ? TEAM_RED : TEAM_BLUE;
+			team = brandom() ? TEAM_SOLDIERS : TEAM_PREDATOR;
 
 		P_Menu_Open(ent, teams_join_menu, team, sizeof(teams_join_menu) / sizeof(menu_t), nullptr, G_Menu_Join_Update);
 	} else {

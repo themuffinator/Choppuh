@@ -84,8 +84,8 @@ enum team_t {
 	TEAM_NONE,
 	TEAM_SPECTATOR,
 	TEAM_FREE,
-	TEAM_RED,
-	TEAM_BLUE,
+	TEAM_SOLDIERS,
+	TEAM_PREDATOR,
 	TEAM_NUM_TEAMS
 };
 
@@ -2333,7 +2333,7 @@ void		InitItems();
 void		SetItemNames();
 gitem_t		*FindItem(const char *pickup_name);
 gitem_t		*FindItemByClassname(const char *classname);
-gentity_t		*Drop_Item(gentity_t *ent, gitem_t *item);
+gentity_t	*Drop_Item(gentity_t *ent, gitem_t *item);
 void		SetRespawn(gentity_t *ent, gtime_t delay, bool hide_self = true);
 void		Change_Weapon(gentity_t *ent);
 bool		SpawnItem(gentity_t *ent, gitem_t *item);
