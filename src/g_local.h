@@ -2227,6 +2227,7 @@ extern cvar_t *g_no_nukes;
 extern cvar_t *g_no_powerups;
 extern cvar_t *g_no_spheres;
 extern cvar_t *g_owner_auto_join;
+extern cvar_t *g_predator_ir;
 extern cvar_t *g_quadhog;
 extern cvar_t *g_quick_weapon_switch;
 extern cvar_t *g_rollangle;
@@ -2420,6 +2421,7 @@ gentity_t *ClientEntFromString(const char *in);
 ruleset_t RS_IndexFromString(const char *in);
 void TeleporterVelocity(gentity_t *ent, gvec3_t angles);
 void MS_Adjust(gclient_t *cl, mstats_t index, int count);
+bool ClientIsPredator(gclient_t *cl);
 
 //
 // g_spawn.cpp

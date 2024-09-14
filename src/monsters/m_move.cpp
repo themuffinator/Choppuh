@@ -1134,7 +1134,7 @@ static bool M_MoveToPath(gentity_t *self, float dist) {
 		return false;
 	else if (!self->enemy)
 		return false;
-	else if (self->enemy->client && self->enemy->client->pu_time_invisibility > level.time && self->enemy->client->invisibility_fade_time <= level.time)
+	else if (self->enemy->client && (ClientIsPredator(self->enemy->client) || self->enemy->client->pu_time_invisibility > level.time) && self->enemy->client->invisibility_fade_time <= level.time)
 		return false;
 	else if (self->monsterinfo.attack_state >= AS_MISSILE)
 		return true;

@@ -988,7 +988,7 @@ static void SetCrosshairIDView(gentity_t *ent) {
 			return;
 
 		// don't show if traced client is currently invisibile
-		if (tr.ent->client->pu_time_invisibility > level.time)
+		if (ClientIsPredator(tr.ent->client) || tr.ent->client->pu_time_invisibility > level.time)
 			return;
 
 		ent->client->ps.stats[STAT_CROSSHAIR_ID_VIEW] = (tr.ent - g_entities);

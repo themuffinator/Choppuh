@@ -1009,3 +1009,9 @@ void MS_Adjust(gclient_t *cl, mstats_t index, int count) {
 
 	cl->resp.mstats[index] += count;
 }
+
+bool ClientIsPredator(gclient_t *cl) {
+	if (cl->sess.team == TEAM_PREDATOR)
+		return true;
+	return false;
+}

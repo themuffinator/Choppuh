@@ -44,7 +44,7 @@ static void Player_UpdateState(gentity_t *player) {
 		player->sv.ent_flags |= SVFL_HAS_PROTECTION;
 	}
 
-	if (player->client->pu_time_invisibility > level.time) {
+	if (ClientIsPredator(player->client) || player->client->pu_time_invisibility > level.time) {
 		player->sv.ent_flags |= SVFL_HAS_INVISIBILITY;
 	}
 

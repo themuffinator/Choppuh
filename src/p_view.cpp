@@ -573,7 +573,7 @@ static void G_CalcBlend(gentity_t *ent) {
 		float brightness = (ent->client->nuke_time - level.time).seconds() / 2.0f;
 		G_AddBlend(1, 1, 1, brightness, ent->client->ps.screen_blend);
 	}
-	if (ent->client->ir_time > level.time) {
+	if ((ClientIsPredator(ent->client) && g_predator_ir->integer) || ent->client->ir_time > level.time) {
 		remaining = ent->client->ir_time - level.time;
 		if (G_PowerUpExpiringRelative(remaining)) {
 			ent->client->ps.rdflags |= RDF_IRGOGGLES;
@@ -818,7 +818,7 @@ static void G_SetClientEffects(gentity_t *ent) {
 		ent->s.effects |= EF_HALF_DAMAGE;
 	if (ent->client->tracker_pain_time > level.time)
 		ent->s.effects |= EF_TRACKERTRAIL;
-	if (ent->client->pu_time_invisibility > level.time) {
+	if (ClientIsPredator(ent->client) || ent->client->pu_time_invisibility > level.time) {
 		if (ent->client->invisibility_fade_time <= level.time)
 			ent->s.alpha = 0.05f;
 		else {

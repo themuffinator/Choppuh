@@ -177,6 +177,7 @@ cvar_t *g_no_nukes;
 cvar_t *g_no_powerups;
 cvar_t *g_no_spheres;
 cvar_t *g_owner_auto_join;
+cvar_t *g_predator_ir;
 cvar_t *g_quadhog;
 cvar_t *g_quick_weapon_switch;
 cvar_t *g_rollangle;
@@ -357,10 +358,12 @@ static void InitGame() {
 	g_dm_strong_mines = gi.cvar("g_dm_strong_mines", "0", CVAR_NOFLAGS);
 	g_dm_random_items = gi.cvar("g_dm_random_items", "0", CVAR_NOFLAGS);
 
+	g_owner_auto_join = gi.cvar("g_owner_auto_join", "1", CVAR_NOFLAGS);
+	g_predator_ir = gi.cvar("g_predator_ir", "1", CVAR_NOFLAGS);
+
 	// game modifications
 	g_instagib = gi.cvar("g_instagib", "0", CVAR_SERVERINFO | CVAR_LATCH);
 	g_instagib_splash = gi.cvar("g_instagib_splash", "0", CVAR_NOFLAGS);
-	g_owner_auto_join = gi.cvar("g_owner_auto_join", "1", CVAR_NOFLAGS);
 	g_quadhog = gi.cvar("g_quadhog", "0", CVAR_SERVERINFO | CVAR_LATCH);
 	g_nadefest = gi.cvar("g_nadefest", "0", CVAR_SERVERINFO | CVAR_LATCH);
 	g_frenzy = gi.cvar("g_frenzy", "0", CVAR_SERVERINFO | CVAR_LATCH);

@@ -1208,47 +1208,34 @@ void InitClientPersistant(gentity_t *ent, gclient_t *client) {
 			} else if (g_nadefest->integer) {
 				client->pers.inventory[IT_AMMO_GRENADES] = AMMO_INFINITE;
 			} else {
-				if (RS(RS_Q3A)) {
-					client->pers.max_ammo.fill(200);
-					client->pers.max_ammo[AMMO_BULLETS] = 200;
-					client->pers.max_ammo[AMMO_SHELLS] = 200;
-					client->pers.max_ammo[AMMO_CELLS] = 200;
-
-					client->pers.max_ammo[AMMO_TRAP] = 200;
-					client->pers.max_ammo[AMMO_FLECHETTES] = 200;
-					client->pers.max_ammo[AMMO_DISRUPTOR] = 200;
-					client->pers.max_ammo[AMMO_TESLA] = 200;
-
-					client->pers.inventory[IT_WEAPON_CHAINFIST] = 1;
-					client->pers.inventory[IT_WEAPON_MACHINEGUN] = 1;
-					client->pers.inventory[IT_AMMO_BULLETS] = 100;
-				} else if (RS(RS_Q1)) {
-					client->pers.max_ammo.fill(200);
-					client->pers.max_ammo[AMMO_BULLETS] = 200;
-					client->pers.max_ammo[AMMO_SHELLS] = 200;
-					client->pers.max_ammo[AMMO_CELLS] = 200;
-
-					client->pers.max_ammo[AMMO_TRAP] = 200;
-					client->pers.max_ammo[AMMO_FLECHETTES] = 200;
-					client->pers.max_ammo[AMMO_DISRUPTOR] = 200;
-					client->pers.max_ammo[AMMO_TESLA] = 200;
-
-					client->pers.inventory[IT_WEAPON_CHAINFIST] = 1;
-					client->pers.inventory[IT_WEAPON_SHOTGUN] = 1;
-					client->pers.inventory[IT_AMMO_SHELLS] = 10;
-				} else {
-					// fill with 50s, since it's our most common value
+				if (client->sess.team == TEAM_SOLDIERS) {
 					client->pers.max_ammo.fill(50);
-					client->pers.max_ammo[AMMO_BULLETS] = 200;
-					client->pers.max_ammo[AMMO_SHELLS] = 100;
-					client->pers.max_ammo[AMMO_CELLS] = 200;
-
-					client->pers.max_ammo[AMMO_TRAP] = 5;
-					client->pers.max_ammo[AMMO_FLECHETTES] = 200;
-					client->pers.max_ammo[AMMO_DISRUPTOR] = 12;
-					client->pers.max_ammo[AMMO_TESLA] = 5;
 
 					client->pers.inventory[IT_WEAPON_BLASTER] = 1;
+
+					if (brandom()) {
+						client->pers.inventory[IT_WEAPON_MACHINEGUN] = 1;
+						client->pers.inventory[IT_AMMO_BULLETS] = 150;
+						client->pers.max_ammo[AMMO_BULLETS] = 200;
+					} else {
+						client->pers.inventory[IT_WEAPON_SHOTGUN] = 1;
+						client->pers.inventory[IT_AMMO_SHELLS] = 50;
+						client->pers.max_ammo[AMMO_SHELLS] = 50;
+					}
+
+					client->pers.inventory[IT_AMMO_GRENADES] = 50;
+				} else {
+					client->pers.max_ammo.fill(50);
+					client->pers.max_ammo[AMMO_ROCKETS] = 50;
+					client->pers.max_ammo[AMMO_SLUGS] = 50;
+					
+					client->pers.inventory[IT_WEAPON_RLAUNCHER] = 1;
+					client->pers.inventory[IT_WEAPON_RAILGUN] = 1;
+					client->pers.inventory[IT_AMMO_ROCKETS] = 50;
+					client->pers.inventory[IT_AMMO_SLUGS] = 50;
+
+					client->pers.inventory[IT_WEAPON_GRAPPLE] = 1;
+					client->pers.inventory[IT_WEAPON_CHAINFIST] = 1;
 				}
 
 				if (deathmatch->integer) {
